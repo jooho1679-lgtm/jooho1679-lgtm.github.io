@@ -297,6 +297,19 @@ h3 {
 
 .primary-btn:active { background: var(--primary-dark); }
 
+.secondary-btn {
+  background: var(--card-bg);
+  color: var(--primary);
+  border: 1.5px solid var(--primary);
+  border-radius: 10px;
+  padding: 10px 16px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.secondary-btn:active { background: #E3F2FD; }
+
 .alarm-status {
   width: 100%;
   font-size: 0.8rem;
@@ -412,4 +425,5 @@ h3 {
   .trip-card .tc-sub { background: #10304F; color: #90CAF9; }
   .next-departure { border-color: #64B5F6; }
   .schedule-list li.next { background: #10304F; }
+  .secondary-btn:active { background: #10304F; }
 }

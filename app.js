@@ -94,10 +94,10 @@
       var trips = (route.schedules[state.dayCategory] || []);
       var btn = document.createElement("button");
       btn.className = "route-card";
-      var jointBadge = route.joint ? '<div class="rc-joint">공동배차: ' + route.companies.join("·") + ' (경익 담당편만 표시)</div>' : "";
+      var jointBadge = route.joint ? '<div class="rc-joint">공동배차: ' + route.companies.join("·") + ' (경익 담당 차량만 표시)</div>' : "";
       btn.innerHTML =
         '<div class="rc-name">' + route.label + '</div>' +
-        '<div class="rc-path">' + route.origin + ' ↔ ' + route.destination + ' · 경익 배차 ' + trips.length + '편</div>' +
+        '<div class="rc-path">' + route.origin + ' ↔ ' + route.destination + ' · 경익 배차 ' + trips.length + '대</div>' +
         jointBadge;
       btn.addEventListener("click", function () { selectRoute(route); });
       container.appendChild(btn);
@@ -116,7 +116,7 @@
     container.innerHTML = "";
     var trips = state.route.schedules[state.dayCategory] || [];
     if (trips.length === 0) {
-      container.innerHTML = '<p>오늘(' + dayCategoryLabel(state.dayCategory) + ') 경익 배차 편이 없습니다.</p>';
+      container.innerHTML = '<p>오늘(' + dayCategoryLabel(state.dayCategory) + ') 경익 배차 차량이 없습니다.</p>';
       return;
     }
     trips.forEach(function (trip) {
@@ -266,33 +266,79 @@
     });
   }
 
+  // ---- Alarm sound ----
+  // 한 번의 울림: 삐- 삐- 삐- (0.5초씩, 0.9초 간격) → 이후 잠시 쉬었다가 반복
+  var BEEP_DURATION = 0.5;
+  var BEEP_OFFSETS = [0, 0.9, 1.8];
+  var RING_CYCLE_MS = 4000;   // 울림 한 세트가 끝나고 다음 세트까지의 간격
+  var MAX_RING_MS = 180000;   // 안전장치: 3분 뒤 자동 정지
+
   var audioCtx = null;
-  function beep() {
+  var ringTimer = null;
+  var ringStopTimer = null;
+
+  function ensureAudioCtx() {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    // 브라우저가 오디오를 일시정지 시켜둔 경우 다시 켜기
+    if (audioCtx.state === "suspended" && audioCtx.resume) audioCtx.resume();
+    return audioCtx;
+  }
+
+  function playBeepSet() {
     try {
-      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      var duration = 0.35;
-      var now = audioCtx.currentTime;
-      [0, 0.45, 0.9].forEach(function (offset) {
-        var osc = audioCtx.createOscillator();
-        var gain = audioCtx.createGain();
-        osc.type = "square";
-        osc.frequency.value = 880;
-        gain.gain.setValueAtTime(0.25, now + offset);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + offset + duration);
-        osc.connect(gain);
-        gain.connect(audioCtx.destination);
-        osc.start(now + offset);
-        osc.stop(now + offset + duration);
+      var ctx = ensureAudioCtx();
+      var now = ctx.currentTime;
+      BEEP_OFFSETS.forEach(function (offset) {
+        var start = now + offset;
+        var end = start + BEEP_DURATION;
+        // 사각파(본음) + 사인파(배음)를 겹쳐서 더 크고 또렷하게
+        [
+          { type: "square", freq: 880, vol: 0.9 },
+          { type: "sine", freq: 1760, vol: 0.5 }
+        ].forEach(function (spec) {
+          var osc = ctx.createOscillator();
+          var gain = ctx.createGain();
+          osc.type = spec.type;
+          osc.frequency.value = spec.freq;
+          gain.gain.setValueAtTime(0.0001, start);
+          gain.gain.exponentialRampToValueAtTime(spec.vol, start + 0.02);
+          gain.gain.setValueAtTime(spec.vol, end - 0.06);
+          gain.gain.exponentialRampToValueAtTime(0.0001, end);
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start(start);
+          osc.stop(end + 0.02);
+        });
       });
     } catch (e) { /* audio unavailable */ }
+  }
+
+  function vibrateSet() {
+    if (navigator.vibrate) navigator.vibrate([600, 300, 600, 300, 600]);
+  }
+
+  function startAlarmSound() {
+    stopAlarmSound();
+    playBeepSet();
+    vibrateSet();
+    ringTimer = setInterval(function () {
+      playBeepSet();
+      vibrateSet();
+    }, RING_CYCLE_MS);
+    ringStopTimer = setTimeout(stopAlarmSound, MAX_RING_MS);
+  }
+
+  function stopAlarmSound() {
+    if (ringTimer) { clearInterval(ringTimer); ringTimer = null; }
+    if (ringStopTimer) { clearTimeout(ringStopTimer); ringStopTimer = null; }
+    if (navigator.vibrate) navigator.vibrate(0);
   }
 
   function fireAlarm(stop, leadMin) {
     $("alarmTitle").textContent = leadMin + "분 후 출발입니다!";
     $("alarmDetail").textContent = stop.stop + " 출발 · " + formatTime(stop.time);
     $("alarmOverlay").classList.remove("hidden");
-    beep();
-    if (navigator.vibrate) navigator.vibrate([500, 200, 500, 200, 500]);
+    startAlarmSound();
     if (window.Notification && Notification.permission === "granted") {
       try {
         new Notification("경익운수 배차 알림 - " + leadMin + "분 전", {
@@ -360,7 +406,14 @@
 
     $("enableAlarmBtn").addEventListener("click", toggleAlarm);
     $("dismissAlarmBtn").addEventListener("click", function () {
+      stopAlarmSound();
       $("alarmOverlay").classList.add("hidden");
+    });
+
+    $("testSoundBtn").addEventListener("click", function () {
+      ensureAudioCtx();
+      playBeepSet();
+      vibrateSet();
     });
 
     renderRouteList();
