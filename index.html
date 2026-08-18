@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>경익운수 배차 알림</title>
+<meta name="theme-color" content="#1565C0">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar-title">🚌 경익운수 배차 알림</div>
+  <div class="topbar-date" id="todayInfo">-</div>
+  <button id="installBtn" class="install-btn hidden">📲 앱으로 설치</button>
+</header>
+
+<main id="app">
+
+  <!-- 요일 구분 확인 바 -->
+  <section class="daytype-bar" id="daytypeBar">
+    <div class="daytype-current">
+      오늘 적용 시간표: <strong id="dayCategoryLabel">평일</strong>
+    </div>
+    <label class="holiday-toggle">
+      <input type="checkbox" id="forceHolidayChk">
+      <span>오늘은 공휴일(휴일 시간표 적용)</span>
+    </label>
+  </section>
+
+  <!-- 1단계: 노선 선택 -->
+  <section id="view-route" class="view">
+    <h2>1. 오늘 배차된 노선을 선택하세요</h2>
+    <div class="route-list" id="routeList"></div>
+  </section>
+
+  <!-- 2단계: 순번 선택 -->
+  <section id="view-trip" class="view hidden">
+    <button class="back-btn" id="backToRoute">← 노선 다시 선택</button>
+    <h2 id="tripRouteTitle">2. 배차 순번(차번호)을 선택하세요</h2>
+    <div class="trip-list" id="tripList"></div>
+  </section>
+
+  <!-- 3단계: 알림 대시보드 -->
+  <section id="view-dashboard" class="view hidden">
+    <button class="back-btn" id="backToRouteFromDash">← 다른 배차 선택</button>
+
+    <div class="dash-header" id="dashHeader"></div>
+
+    <div class="next-departure" id="nextDeparture">
+      <div class="nd-label">다음 출발</div>
+      <div class="nd-stop" id="ndStop">-</div>
+      <div class="nd-time" id="ndTime">--:--</div>
+      <div class="nd-countdown" id="ndCountdown">-</div>
+    </div>
+
+    <div class="alarm-controls">
+      <label for="leadMinutes">몇 분 전에 알려드릴까요?</label>
+      <select id="leadMinutes">
+        <option value="5">5분 전</option>
+        <option value="10" selected>10분 전</option>
+        <option value="15">15분 전</option>
+        <option value="20">20분 전</option>
+        <option value="30">30분 전</option>
+      </select>
+      <button id="enableAlarmBtn" class="primary-btn">🔔 알림 켜기</button>
+      <div class="alarm-status" id="alarmStatus">알림이 꺼져 있습니다</div>
+    </div>
+
+    <h3>오늘의 전체 출발 시간표</h3>
+    <ol class="schedule-list" id="scheduleList"></ol>
+
+    <p class="disclaimer">
+      ※ 이 알림은 이 화면(브라우저 탭)이 켜져 있는 동안 동작합니다. 화면이 꺼지거나 앱이 완전히 종료되면
+      알림이 울리지 않을 수 있으니, 화면을 켜둔 채로 두거나 휴대폰 자체 알람을 보조 수단으로 함께 사용하세요.
+    </p>
+  </section>
+
+</main>
+
+<!-- 알람 발생 오버레이 -->
+<div id="alarmOverlay" class="alarm-overlay hidden">
+  <div class="alarm-box">
+    <div class="alarm-icon">⏰</div>
+    <div class="alarm-title" id="alarmTitle">출발 준비 시간입니다!</div>
+    <div class="alarm-detail" id="alarmDetail"></div>
+    <button id="dismissAlarmBtn" class="primary-btn">확인</button>
+  </div>
+</div>
+
+<script src="schedule-data.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
