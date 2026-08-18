@@ -19,12 +19,12 @@ https://github.com/signup 에서 무료로 가입합니다.
 5. 생성된 저장소 페이지에 나오는 주소를 복사합니다. (예: `https://github.com/사용자이름/geongik-schedule.git`)
 
 ### 3. 이 폴더를 저장소에 올리기
-이 폴더(`경익운수배차알림`)에서 터미널(PowerShell)을 열고 아래 명령을 순서대로 입력합니다.
+이 폴더는 이미 git 저장소로 준비되어 있고 커밋도 완료된 상태입니다 (branch: `main`).
+이 폴더에서 터미널(PowerShell)을 열고 아래 명령만 입력하면 됩니다.
 `<저장소주소>` 부분은 2번에서 복사한 주소로 바꿔주세요.
 
 ```bash
 git remote add origin <저장소주소>
-git branch -M main
 git push -u origin main
 ```
 
