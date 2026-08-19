@@ -8,6 +8,10 @@ on:
       - 'android/**'
       - '.github/workflows/android.yml'
 
+# 빌드한 APK를 공개 다운로드 링크로 올리기 위해 필요
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -37,12 +41,27 @@ jobs:
       - name: APK 이름 정리
         run: |
           mkdir -p out
-          cp android/app/build/outputs/apk/debug/app-debug.apk "out/경익배차알림.apk"
+          cp android/app/build/outputs/apk/debug/app-debug.apk out/geongik-alarm.apk
           ls -lh out
 
       - name: APK 내려받기용으로 올리기
         uses: actions/upload-artifact@v4
         with:
-          name: 경익배차알림-APK
-          path: out/경익배차알림.apk
+          name: geongik-alarm-apk
+          path: out/geongik-alarm.apk
           if-no-files-found: error
+
+      # 카카오톡은 apk 파일 전송을 막기 때문에, 누구나 받을 수 있는
+      # 고정 다운로드 링크를 만들어 그 링크를 전달하도록 한다.
+      - name: 공개 다운로드 링크로 배포
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: app
+          name: 경익배차알림 앱
+          body: |
+            안드로이드 기사님용 배차 알림 앱입니다.
+
+            아래 `geongik-alarm.apk` 를 눌러 내려받아 설치하세요.
+            설치 안내: https://jooho1679-lgtm.github.io/app.html
+          files: out/geongik-alarm.apk
+          make_latest: true
