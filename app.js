@@ -32,26 +32,36 @@
     return cat;
   }
 
-  function getForceHolidayFlag() {
-    try {
-      var raw = localStorage.getItem(LS_HOLIDAY_KEY);
-      if (!raw) return false;
-      var obj = JSON.parse(raw);
-      if (obj.date !== todayStr(new Date())) return false;
-      return !!obj.value;
-    } catch (e) { return false; }
-  }
-
-  function setForceHolidayFlag(val) {
-    localStorage.setItem(LS_HOLIDAY_KEY, JSON.stringify({ date: todayStr(new Date()), value: val }));
-  }
-
-  function computeDayCategory() {
-    if (getForceHolidayFlag()) return "holiday";
+  // 오늘 날짜만 보고 자동으로 정하는 요일 구분
+  // (공휴일은 달력으로 알 수 없으므로 기사님이 직접 '휴일'을 누르면 됨)
+  function autoDayCategory() {
     var d = new Date().getDay();
     if (d === 0) return "holiday";
     if (d === 6) return "saturday";
     return "weekday";
+  }
+
+  // 사용자가 직접 고른 요일(당일에만 유지)
+  function getDayOverride() {
+    try {
+      var raw = localStorage.getItem(LS_HOLIDAY_KEY);
+      if (!raw) return null;
+      var obj = JSON.parse(raw);
+      if (obj.date !== todayStr(new Date())) return null;
+      return obj.value || null;
+    } catch (e) { return null; }
+  }
+
+  function setDayOverride(cat) {
+    if (!cat || cat === autoDayCategory()) {
+      localStorage.removeItem(LS_HOLIDAY_KEY);
+    } else {
+      localStorage.setItem(LS_HOLIDAY_KEY, JSON.stringify({ date: todayStr(new Date()), value: cat }));
+    }
+  }
+
+  function computeDayCategory() {
+    return getDayOverride() || autoDayCategory();
   }
 
   function parseTimeToday(hhmm) {
@@ -84,7 +94,42 @@
     var now = new Date();
     var wd = ["일", "월", "화", "수", "목", "금", "토"][now.getDay()];
     $("todayInfo").textContent = now.getFullYear() + "년 " + (now.getMonth() + 1) + "월 " + now.getDate() + "일 (" + wd + ") " + pad2(now.getHours()) + ":" + pad2(now.getMinutes());
-    $("dayCategoryLabel").textContent = dayCategoryLabel(state.dayCategory);
+    renderDayTabs();
+  }
+
+  function renderDayTabs() {
+    var auto = autoDayCategory();
+    var tabs = document.querySelectorAll(".day-tab");
+    Array.prototype.forEach.call(tabs, function (btn) {
+      var day = btn.dataset.day;
+      btn.classList.toggle("active", day === state.dayCategory);
+      btn.classList.toggle("is-today", day === auto);
+    });
+    var note = $("dayNote");
+    if (state.dayCategory === auto) {
+      note.textContent = "오늘 날짜에 맞는 " + dayCategoryLabel(auto) + " 시간표입니다.";
+      note.classList.remove("warn");
+    } else {
+      note.textContent = "※ 오늘은 " + dayCategoryLabel(auto) + "입니다. 지금은 " +
+        dayCategoryLabel(state.dayCategory) + " 시간표를 보고 있습니다.";
+      note.classList.add("warn");
+    }
+  }
+
+  function setDayCategory(cat) {
+    if (state.dayCategory === cat) return;
+    state.dayCategory = cat;
+    setDayOverride(cat);
+    stopAlarmSound();
+    state.alarmOn = false;
+    state.fired = {};
+    stopAllTimers();
+    state.route = null;
+    state.trip = null;
+    localStorage.removeItem(LS_KEY);
+    renderDayTabs();
+    renderRouteList();
+    showView("view-route");
   }
 
   function renderRouteList() {
@@ -476,14 +521,8 @@
   function init() {
     state.dayCategory = computeDayCategory();
     renderTopbar();
-    $("forceHolidayChk").checked = getForceHolidayFlag();
-
-    $("forceHolidayChk").addEventListener("change", function (e) {
-      setForceHolidayFlag(e.target.checked);
-      state.dayCategory = computeDayCategory();
-      renderTopbar();
-      renderRouteList();
-      if (state.route) renderTripList();
+    Array.prototype.forEach.call(document.querySelectorAll(".day-tab"), function (btn) {
+      btn.addEventListener("click", function () { setDayCategory(btn.dataset.day); });
     });
 
     $("backToRoute").addEventListener("click", function () { showView("view-route"); });

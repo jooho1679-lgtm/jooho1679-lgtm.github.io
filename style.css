@@ -72,26 +72,65 @@ main {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  justify-content: space-between;
   gap: 8px;
 }
 
-.daytype-current strong {
-  color: var(--primary);
-}
-
-.holiday-toggle {
-  display: flex;
-  align-items: center;
-  gap: 6px;
+.daytype-current {
+  width: 100%;
   font-size: 0.85rem;
   color: var(--muted);
-  cursor: pointer;
+  font-weight: 700;
 }
 
-.holiday-toggle input {
-  width: 18px;
-  height: 18px;
+.daytype-tabs {
+  display: flex;
+  gap: 6px;
+  width: 100%;
+}
+
+.day-tab {
+  flex: 1;
+  padding: 10px 6px;
+  border: 1.5px solid var(--border);
+  background: var(--card-bg);
+  color: var(--muted);
+  border-radius: 10px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+  position: relative;
+}
+
+.day-tab.active {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+}
+
+/* 오늘 날짜에 해당하는 요일에 점 표시 */
+.day-tab.is-today::after {
+  content: "";
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.day-tab.is-today.active::after { background: #fff; }
+
+.daytype-note {
+  width: 100%;
+  font-size: 0.78rem;
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+.daytype-note.warn {
+  color: #E65100;
+  font-weight: 700;
 }
 
 h2 {
@@ -451,4 +490,5 @@ h3 {
   .schedule-list li.next { background: #10304F; }
   .secondary-btn:active { background: #10304F; }
   .volume-hint { background: #3A2A12; }
+  .daytype-note.warn { color: #FFB74D; }
 }

@@ -22,13 +22,13 @@
 
   <!-- 요일 구분 확인 바 -->
   <section class="daytype-bar" id="daytypeBar">
-    <div class="daytype-current">
-      오늘 적용 시간표: <strong id="dayCategoryLabel">평일</strong>
+    <div class="daytype-current">적용 시간표</div>
+    <div class="daytype-tabs" id="dayTabs">
+      <button class="day-tab" data-day="weekday">평일</button>
+      <button class="day-tab" data-day="saturday">토요일</button>
+      <button class="day-tab" data-day="holiday">휴일</button>
     </div>
-    <label class="holiday-toggle">
-      <input type="checkbox" id="forceHolidayChk">
-      <span>오늘은 공휴일(휴일 시간표 적용)</span>
-    </label>
+    <div class="daytype-note" id="dayNote"></div>
   </section>
 
   <!-- 1단계: 노선 선택 -->
