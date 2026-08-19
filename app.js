@@ -129,7 +129,8 @@
     localStorage.removeItem(LS_KEY);
     renderDayTabs();
     renderRouteList();
-    showView("view-route");
+    // 요일을 바꾸면 처음(노선 목록)부터 다시 고르는 것이므로 현재 기록을 시작점으로 되돌림
+    replaceView("view-route");
   }
 
   // 엑셀 원본에서 요일이 어떻게 묶여 있는지 알려준다.
@@ -163,10 +164,12 @@
   }
 
   function selectRoute(route) {
+    // 다른 노선을 고르면 이전 노선의 순번 표시가 남지 않도록 초기화
+    if (state.route !== route) state.trip = null;
     state.route = route;
     $("tripRouteTitle").textContent = "2. " + route.label + " 배차 순번(차번호)을 선택하세요";
     renderTripList();
-    showView("view-trip");
+    pushView("view-trip");
   }
 
   function renderTripList() {
@@ -198,7 +201,7 @@
     state.trip = trip;
     saveSelection();
     showDashboard();
-    showView("view-dashboard");
+    pushView("view-dashboard");
   }
 
   function saveSelection() {
@@ -232,6 +235,52 @@
     ["view-route", "view-trip", "view-dashboard"].forEach(function (v) {
       $(v).classList.toggle("hidden", v !== id);
     });
+    window.scrollTo(0, 0);
+  }
+
+  function currentView() {
+    var ids = ["view-route", "view-trip", "view-dashboard"];
+    for (var i = 0; i < ids.length; i++) {
+      if (!$(ids[i]).classList.contains("hidden")) return ids[i];
+    }
+    return "view-route";
+  }
+
+  // 안드로이드 폰의 뒤로가기 버튼이 앱 안에서 단계별로 동작하도록
+  // 화면을 이동할 때마다 브라우저 방문 기록을 남긴다.
+  function pushView(id) {
+    showView(id);
+    try { history.pushState({ view: id }, ""); } catch (e) { /* ignore */ }
+  }
+
+  function replaceView(id) {
+    showView(id);
+    try { history.replaceState({ view: id }, ""); } catch (e) { /* ignore */ }
+  }
+
+  // 배차 화면 -> 순번 목록으로 되돌아갈 때의 정리 작업
+  function leaveDashboard() {
+    stopAllTimers();
+    stopAlarmSound();
+    state.alarmOn = false;
+    state.fired = {};
+  }
+
+  // 뒤로가기(폰 버튼 또는 화면 안 버튼)로 목적지가 정해졌을 때 실제 화면 전환
+  function applyBackTarget(target) {
+    if (target === "view-dashboard" && (!state.route || !state.trip)) target = "view-route";
+    if (target === "view-trip" && !state.route) target = "view-route";
+
+    if (target !== "view-dashboard") leaveDashboard();
+
+    if (target === "view-trip") {
+      renderTripList();
+      showView("view-trip");
+    } else if (target === "view-dashboard") {
+      showView("view-dashboard");
+    } else {
+      showView("view-route");
+    }
   }
 
   function showDashboard() {
@@ -544,19 +593,20 @@
       btn.addEventListener("click", function () { setDayCategory(btn.dataset.day); });
     });
 
-    $("backToRoute").addEventListener("click", function () { showView("view-route"); });
-    $("backToRouteFromDash").addEventListener("click", function () {
-      stopAllTimers();
-      stopAlarmSound();
-      state.alarmOn = false;
-      state.fired = {};
-      // 노선까지 되돌아가지 않고, 같은 노선의 순번 목록으로 복귀
-      if (state.route) {
-        renderTripList();
-        showView("view-trip");
-      } else {
-        showView("view-route");
+    // 화면 안의 뒤로가기 버튼도 폰의 뒤로가기와 똑같이 동작하도록 방문 기록을 되돌린다
+    $("backToRoute").addEventListener("click", function () { history.back(); });
+    $("backToRouteFromDash").addEventListener("click", function () { history.back(); });
+
+    window.addEventListener("popstate", function (e) {
+      // 알람이 울리는 중이면 뒤로가기는 우선 알람을 끄는 데 사용
+      if (!$("alarmOverlay").classList.contains("hidden")) {
+        stopAlarmSound();
+        $("alarmOverlay").classList.add("hidden");
+        try { history.pushState({ view: currentView() }, ""); } catch (err) { /* ignore */ }
+        return;
       }
+      var target = (e.state && e.state.view) || "view-route";
+      applyBackTarget(target);
     });
 
     $("leadMinutes").addEventListener("change", function () {
@@ -599,11 +649,17 @@
 
     renderRouteList();
 
+    // 첫 화면(노선 목록)을 방문 기록의 시작점으로 삼는다
+    replaceView("view-route");
+
     if (tryRestoreSelection()) {
+      // 저장된 배차로 바로 들어가되, 뒤로가기가 순번 목록 -> 노선 목록 순으로
+      // 단계별로 동작하도록 중간 기록을 쌓아둔다
+      $("tripRouteTitle").textContent = "2. " + state.route.label + " 배차 순번(차번호)을 선택하세요";
+      renderTripList();
+      pushView("view-trip");
       showDashboard();
-      showView("view-dashboard");
-    } else {
-      showView("view-route");
+      pushView("view-dashboard");
     }
 
     setInterval(function () {
