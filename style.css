@@ -396,6 +396,45 @@ h3 {
   line-height: 1.5;
 }
 
+.lead-block { width: 100%; }
+
+.perstop-toggle {
+  display: flex !important;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  font-size: 0.85rem;
+  color: var(--text) !important;
+  cursor: pointer;
+  padding: 8px 0;
+}
+
+.perstop-toggle input { width: 18px; height: 18px; flex: none; }
+
+#perStopArea { width: 100%; }
+
+.stop-group {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px;
+  margin-bottom: 10px;
+  background: var(--card-bg);
+}
+
+.stop-group .stop-name {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--primary-dark);
+  margin-bottom: 8px;
+}
+
+.stop-group .stop-name .stop-count {
+  font-weight: 400;
+  font-size: 0.78rem;
+  color: var(--muted);
+  margin-left: 6px;
+}
+
 .lead-hint.warn { color: var(--danger); font-weight: 700; }
 
 .until-hint {

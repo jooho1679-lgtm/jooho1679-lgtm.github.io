@@ -62,15 +62,23 @@
       <select id="untilStop"></select>
       <div class="until-hint" id="untilHint"></div>
 
-      <label>몇 분 전에 알려드릴까요? <span class="label-sub">(여러 개 고를 수 있어요)</span></label>
-      <div class="lead-options" id="leadOptions">
-        <label class="lead-chip"><input type="checkbox" value="30"><span>30분 전</span></label>
-        <label class="lead-chip"><input type="checkbox" value="20"><span>20분 전</span></label>
-        <label class="lead-chip"><input type="checkbox" value="15"><span>15분 전</span></label>
-        <label class="lead-chip"><input type="checkbox" value="10" checked><span>10분 전</span></label>
-        <label class="lead-chip"><input type="checkbox" value="5"><span>5분 전</span></label>
+      <div id="globalLeadBox" class="lead-block">
+        <label>몇 분 전에 알려드릴까요? <span class="label-sub">(여러 개 고를 수 있어요)</span></label>
+        <div class="lead-options" id="leadOptions">
+          <label class="lead-chip"><input type="checkbox" value="30"><span>30분 전</span></label>
+          <label class="lead-chip"><input type="checkbox" value="20"><span>20분 전</span></label>
+          <label class="lead-chip"><input type="checkbox" value="15"><span>15분 전</span></label>
+          <label class="lead-chip"><input type="checkbox" value="10" checked><span>10분 전</span></label>
+          <label class="lead-chip"><input type="checkbox" value="5"><span>5분 전</span></label>
+        </div>
+        <div class="lead-hint" id="leadHint"></div>
       </div>
-      <div class="lead-hint" id="leadHint"></div>
+
+      <label class="perstop-toggle">
+        <input type="checkbox" id="perStopChk">
+        <span>출발지마다 다르게 설정하기</span>
+      </label>
+      <div id="perStopArea" class="hidden"></div>
       <label for="soundProfile" class="sound-label">알림음 종류 (바꾸면 바로 들려드려요)</label>
       <select id="soundProfile"></select>
       <button id="enableAlarmBtn" class="primary-btn">🔔 알림 켜기</button>

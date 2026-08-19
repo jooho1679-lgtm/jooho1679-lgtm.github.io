@@ -13,7 +13,9 @@
     alarmOn: false,
     timers: [],
     fired: {},
-    untilIdx: null      // 근무 종료 시점(마지막으로 알림 받을 출발). null 이면 막차까지
+    untilIdx: null,     // 근무 종료 시점(마지막으로 알림 받을 출발). null 이면 막차까지
+    perStop: false,     // 출발지마다 다르게 설정할지
+    leadsByStop: {}     // { "원내동": [20,10], "신안동": [5] }
 
   };
 
@@ -201,8 +203,12 @@
   }
 
   function selectTrip(trip) {
-    // 순번을 새로 고르면 근무 종료 지점도 초기화
-    if (state.trip !== trip) state.untilIdx = null;
+    // 순번을 새로 고르면 근무 종료 지점과 출발지별 설정도 초기화
+    if (state.trip !== trip) {
+      state.untilIdx = null;
+      state.perStop = false;
+      state.leadsByStop = {};
+    }
     state.trip = trip;
     saveSelection();
     showDashboard();
@@ -216,7 +222,9 @@
       routeLabel: state.route.label,
       tripNum: state.trip.trip,
       untilIdx: (state.untilIdx === null || state.untilIdx === undefined) ? null : state.untilIdx,
-      leads: getLeads()
+      leads: getLeads(),
+      perStop: state.perStop,
+      leadsByStop: state.leadsByStop
     }));
   }
 
@@ -237,6 +245,9 @@
       state.untilIdx = (typeof obj.untilIdx === "number" &&
         obj.untilIdx >= 0 && obj.untilIdx < trip.stops.length) ? obj.untilIdx : null;
       if (obj.leads && obj.leads.length) setLeads(obj.leads);
+      state.perStop = !!obj.perStop;
+      state.leadsByStop = (obj.leadsByStop && typeof obj.leadsByStop === "object")
+        ? obj.leadsByStop : {};
       return true;
     } catch (e) { return false; }
   }
@@ -305,6 +316,10 @@
       })() + '</div>';
     renderUntilOptions();
     updateLeadHint();
+    $("perStopChk").checked = state.perStop;
+    $("globalLeadBox").classList.toggle("hidden", state.perStop);
+    $("perStopArea").classList.toggle("hidden", !state.perStop);
+    renderPerStopOptions();
     renderScheduleList();
     updateNextDeparture();
     stopAllTimers();
@@ -353,6 +368,125 @@
         leads.length + "번 알려드립니다.";
       hint.classList.remove("warn");
     }
+  }
+
+  // ---- 출발지별 알림 설정 ----
+  // 한 순번은 두 곳(차고지/회차지)을 오가는데, 준비 시간이 서로 다를 수 있다.
+  // 예: 차고지에서는 20분 전, 회차지에서는 5분 전.
+
+  // 이 순번에 나오는 출발지 목록 (근무 종료 구간까지만, 나온 순서대로)
+  function tripStopNames() {
+    var names = [];
+    var limit = untilIndex();
+    state.trip.stops.forEach(function (s, idx) {
+      if (idx > limit) return;
+      if (names.indexOf(s.stop) < 0) names.push(s.stop);
+    });
+    return names;
+  }
+
+  function stopDepartureCount(name) {
+    var limit = untilIndex();
+    var n = 0;
+    state.trip.stops.forEach(function (s, idx) {
+      if (idx <= limit && s.stop === name) n++;
+    });
+    return n;
+  }
+
+  // 실제로 적용할 '몇 분 전' 목록. 출발지별 설정이 켜져 있으면 그 값을 쓴다.
+  function getLeadsFor(stopName) {
+    if (state.perStop) {
+      var v = state.leadsByStop[stopName];
+      return v ? v.slice().sort(function (a, b) { return b - a; }) : [];
+    }
+    return getLeads();
+  }
+
+  function renderPerStopOptions() {
+    var area = $("perStopArea");
+    area.innerHTML = "";
+    if (!state.perStop) return;
+
+    tripStopNames().forEach(function (name) {
+      var cur = state.leadsByStop[name] || [];
+      var group = document.createElement("div");
+      group.className = "stop-group";
+
+      var title = document.createElement("div");
+      title.className = "stop-name";
+      title.innerHTML = name + " 출발" +
+        '<span class="stop-count">' + stopDepartureCount(name) + '회</span>';
+      group.appendChild(title);
+
+      var opts = document.createElement("div");
+      opts.className = "lead-options";
+      [30, 20, 15, 10, 5].forEach(function (m) {
+        var lab = document.createElement("label");
+        lab.className = "lead-chip";
+        var cb = document.createElement("input");
+        cb.type = "checkbox";
+        cb.value = String(m);
+        cb.checked = cur.indexOf(m) >= 0;
+        cb.addEventListener("change", function () {
+          var list = state.leadsByStop[name] || [];
+          if (cb.checked) {
+            if (list.indexOf(m) < 0) list.push(m);
+          } else {
+            list = list.filter(function (x) { return x !== m; });
+          }
+          state.leadsByStop[name] = list;
+          saveSelection();
+          updatePerStopHints();
+          if (state.alarmOn) { state.fired = {}; scheduleAlarms(); }
+          updateAlarmStatus();
+        });
+        var sp = document.createElement("span");
+        sp.textContent = m + "분 전";
+        lab.appendChild(cb);
+        lab.appendChild(sp);
+        opts.appendChild(lab);
+      });
+      group.appendChild(opts);
+
+      var hint = document.createElement("div");
+      hint.className = "lead-hint";
+      hint.dataset.stop = name;
+      group.appendChild(hint);
+
+      area.appendChild(group);
+    });
+    updatePerStopHints();
+  }
+
+  function updatePerStopHints() {
+    Array.prototype.forEach.call(
+      document.querySelectorAll("#perStopArea .lead-hint"),
+      function (h) {
+        var leads = getLeadsFor(h.dataset.stop);
+        if (leads.length === 0) {
+          h.textContent = "이 출발지는 알리지 않습니다.";
+          h.classList.add("warn");
+        } else {
+          h.textContent = "출발 " + leads.join("분·") + "분 전에 알려드립니다.";
+          h.classList.remove("warn");
+        }
+      }
+    );
+  }
+
+  function setPerStop(on) {
+    state.perStop = on;
+    if (on) {
+      // 켤 때는 지금 설정을 각 출발지의 기본값으로 복사
+      var base = getLeads();
+      tripStopNames().forEach(function (name) {
+        if (!state.leadsByStop[name]) state.leadsByStop[name] = base.slice();
+      });
+    }
+    $("globalLeadBox").classList.toggle("hidden", on);
+    $("perStopArea").classList.toggle("hidden", !on);
+    renderPerStopOptions();
   }
 
   function untilIndex() {
@@ -473,10 +607,13 @@
   function scheduleAlarms() {
     stopAllTimers();
     if (!state.alarmOn) return;
-    var leads = getLeads();
-    if (leads.length === 0) return;
     var now = new Date();
     var limitIdx = untilIndex();
+    // 출발지별 설정이면 한 곳이라도 고른 게 있어야 한다
+    var anyLead = state.perStop
+      ? tripStopNames().some(function (n) { return getLeadsFor(n).length > 0; })
+      : getLeads().length > 0;
+    if (!anyLead) return;
 
     // 전용 앱에서는 안드로이드 시스템 알람에 맡긴다.
     // 화면이 꺼져 있어도, 앱을 닫아도 정확한 시각에 울린다.
@@ -486,7 +623,7 @@
       state.trip.stops.forEach(function (s, idx) {
         if (idx > limitIdx) return;                 // 근무 종료 이후는 등록하지 않음
         var depTime = parseTimeToday(s.time);
-        leads.forEach(function (lead) {
+        getLeadsFor(s.stop).forEach(function (lead) {
           var trigger = depTime.getTime() - lead * 60000;
           if (trigger - now.getTime() <= 0) return; // 이미 지난 알람은 제외
           list.push({
@@ -505,13 +642,17 @@
         } else {
           // 예전 버전 앱: 한 가지 시점만 지원하므로 가장 이른 것 하나만 등록
           var one = [];
+          var fallbackLead = 10;
           state.trip.stops.forEach(function (s, idx) {
             if (idx > limitIdx) return;
+            var ls = getLeadsFor(s.stop);
+            if (ls.length === 0) return;              // 알리지 않기로 한 출발지는 제외
+            fallbackLead = ls[0];
             var depTime = parseTimeToday(s.time);
             if (depTime - now <= 0) return;
             one.push({ departAt: depTime.getTime(), stop: s.stop, departText: formatTime(s.time) });
           });
-          window.AndroidAlarm.scheduleAll(JSON.stringify(one), leads[0], title);
+          window.AndroidAlarm.scheduleAll(JSON.stringify(one), fallbackLead, title);
         }
       } catch (e) { /* 실패해도 조용히 무시 */ }
       return;
@@ -520,7 +661,7 @@
     state.trip.stops.forEach(function (s, idx) {
       if (idx > limitIdx) return;                   // 근무 종료 이후는 알리지 않음
       var depTime = parseTimeToday(s.time);
-      leads.forEach(function (lead) {
+      getLeadsFor(s.stop).forEach(function (lead) {
       var alarmTime = new Date(depTime.getTime() - lead * 60000);
       var delay = alarmTime - now;
       var key = idx + "_" + lead;
@@ -576,8 +717,7 @@
 
   function buildICS() {
     var route = state.route, trip = state.trip;
-    var leads = getLeads();
-    if (leads.length === 0) leads = [10];
+    var allLeads = [];   // 안내 문구용으로 실제 사용된 시점을 모아둔다
     var now = new Date();
     var stamp = icsStamp(now);
     var lines = [
@@ -603,6 +743,8 @@
       if (idx > limitIdx) return;       // 근무 종료 이후는 캘린더에도 넣지 않음
       var start = parseTimeToday(s.time);
       if (start < now) return;          // 이미 지난 출발은 등록하지 않음
+      var stopLeads = getLeadsFor(s.stop);
+      if (stopLeads.length === 0) return;   // 알리지 않기로 한 출발지는 제외
       var end = new Date(start.getTime() + 5 * 60000);
       var title = route.label + " " + trip.trip + "번차 · " + s.stop + " 출발";
       var desc = route.origin + " ↔ " + route.destination + " / " +
@@ -616,7 +758,8 @@
       lines.push("SUMMARY:" + icsEscape(title));
       lines.push("DESCRIPTION:" + icsEscape(desc));
       // 고른 시점마다 알림을 하나씩 넣는다 (여러 번 알림)
-      leads.forEach(function (lead) {
+      stopLeads.forEach(function (lead) {
+        if (allLeads.indexOf(lead) < 0) allLeads.push(lead);
         lines.push("BEGIN:VALARM");
         lines.push("TRIGGER:-PT" + lead + "M");
         lines.push("ACTION:DISPLAY");
@@ -628,7 +771,8 @@
     });
     lines.push("END:VCALENDAR");
 
-    return { text: lines.map(icsFold).join("\r\n") + "\r\n", count: count, leads: leads };
+    allLeads.sort(function (a, b) { return b - a; });
+    return { text: lines.map(icsFold).join("\r\n") + "\r\n", count: count, leads: allLeads };
   }
 
   function exportICS() {
@@ -839,13 +983,22 @@
     }
   }
 
+  // 현재 알림 설정을 짧게 요약 (출발지별로 다르면 각각 표기)
+  function alarmSummaryText() {
+    if (!state.perStop) return getLeads().join("·") + "분 전";
+    return tripStopNames().map(function (n) {
+      var l = getLeadsFor(n);
+      return n + " " + (l.length ? l.join("·") + "분 전" : "알림 없음");
+    }).join(" / ");
+  }
+
   function updateAlarmStatus() {
     var elStatus = $("alarmStatus");
     var elBtn = $("enableAlarmBtn");
     if (state.alarmOn) {
       elStatus.textContent = hasNativeAlarm()
-        ? "폰 알람으로 등록됨 (" + getLeads().join("·") + "분 전) · 화면이 꺼져도 울립니다"
-        : "알림이 켜져 있습니다 (" + getLeads().join("·") + "분 전 알림)";
+        ? "폰 알람으로 등록됨 (" + alarmSummaryText() + ") · 화면이 꺼져도 울립니다"
+        : "알림이 켜져 있습니다 (" + alarmSummaryText() + ")";
       elStatus.classList.add("on");
       elBtn.textContent = "🔕 알림 끄기";
     } else {
@@ -920,6 +1073,13 @@
       }
     );
 
+    $("perStopChk").addEventListener("change", function (e) {
+      setPerStop(e.target.checked);
+      saveSelection();
+      if (state.alarmOn) { state.fired = {}; scheduleAlarms(); }
+      updateAlarmStatus();
+    });
+
     $("enableAlarmBtn").addEventListener("click", toggleAlarm);
     $("exportIcsBtn").addEventListener("click", exportICS);
 
@@ -927,6 +1087,7 @@
       state.untilIdx = (e.target.value === "all") ? null : parseInt(e.target.value, 10);
       saveSelection();
       updateUntilHint();
+      renderPerStopOptions();   // 구간이 줄면 출발지 목록도 달라질 수 있음
       renderScheduleList();
       updateNextDeparture();
       // 이미 등록해둔 알람이 있으면 새 구간으로 다시 등록
