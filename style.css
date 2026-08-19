@@ -188,6 +188,22 @@ h3 {
   margin-top: 2px;
 }
 
+.route-card .rc-daykind {
+  display: inline-block;
+  margin-top: 6px;
+  margin-right: 4px;
+  font-size: 0.72rem;
+  background: #E8F5E9;
+  color: #2E7D32;
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+
+.dash-header .dh-kind {
+  font-size: 0.78rem;
+  opacity: 0.85;
+}
+
 .route-card .rc-joint {
   display: inline-block;
   margin-top: 6px;
@@ -485,6 +501,7 @@ h3 {
     --border: #2D3238;
   }
   .route-card .rc-joint { background: #3A2A12; color: #FFB74D; }
+  .route-card .rc-daykind { background: #16301B; color: #A5D6A7; }
   .trip-card .tc-sub { background: #10304F; color: #90CAF9; }
   .next-departure { border-color: #64B5F6; }
   .schedule-list li.next { background: #10304F; }

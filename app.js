@@ -132,6 +132,17 @@
     showView("view-route");
   }
 
+  // 엑셀 원본에서 요일이 어떻게 묶여 있는지 알려준다.
+  // (토요일 시간표가 빠진 게 아니라 원래 휴일과 같은 표를 쓴다는 걸 명확히 하기 위함)
+  function scheduleKindLabel(route, cat) {
+    var meta = route.meta && route.meta[cat];
+    if (!meta) return null;
+    var raw = (meta.dayTypeLabel || "").replace(/\s/g, "");
+    if (raw === "ALL") return "매일 같은 시간표";
+    if (raw === "휴,토" || raw === "휴토" || raw === "토,휴") return "휴일·토요일 공용 시간표";
+    return null;
+  }
+
   function renderRouteList() {
     var container = $("routeList");
     container.innerHTML = "";
@@ -140,10 +151,12 @@
       var btn = document.createElement("button");
       btn.className = "route-card";
       var jointBadge = route.joint ? '<div class="rc-joint">공동배차: ' + route.companies.join("·") + ' (경익 담당 차량만 표시)</div>' : "";
+      var kind = scheduleKindLabel(route, state.dayCategory);
+      var kindBadge = kind ? '<div class="rc-daykind">' + kind + '</div>' : "";
       btn.innerHTML =
         '<div class="rc-name">' + route.label + '</div>' +
         '<div class="rc-path">' + route.origin + ' ↔ ' + route.destination + ' · 경익 배차 ' + trips.length + '대</div>' +
-        jointBadge;
+        kindBadge + jointBadge;
       btn.addEventListener("click", function () { selectRoute(route); });
       container.appendChild(btn);
     });
@@ -224,7 +237,11 @@
     var trip = state.trip;
     $("dashHeader").innerHTML =
       '<div class="dh-route">' + route.label + ' · ' + trip.trip + '번차' + (trip.subRoute ? ' (' + trip.subRoute + '번 운행)' : '') + '</div>' +
-      '<div class="dh-sub">' + route.origin + ' ↔ ' + route.destination + ' · ' + dayCategoryLabel(state.dayCategory) + ' 시간표</div>';
+      '<div class="dh-sub">' + route.origin + ' ↔ ' + route.destination + ' · ' + dayCategoryLabel(state.dayCategory) + ' 시간표' +
+      (function () {
+        var kind = scheduleKindLabel(route, state.dayCategory);
+        return kind ? '<br><span class="dh-kind">(' + kind + ')</span>' : '';
+      })() + '</div>';
     renderScheduleList();
     updateNextDeparture();
     stopAllTimers();
