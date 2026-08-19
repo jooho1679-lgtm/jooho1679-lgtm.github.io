@@ -25,6 +25,7 @@ class AlarmReceiver : BroadcastReceiver() {
         val title = intent.getStringExtra("title") ?: "출발 알림"
         val stop = intent.getStringExtra("stop") ?: ""
         val departText = intent.getStringExtra("departText") ?: ""
+        val lead = intent.getIntExtra("lead", 0)
 
         createChannel(context)
 
@@ -33,6 +34,7 @@ class AlarmReceiver : BroadcastReceiver() {
             putExtra("title", title)
             putExtra("stop", stop)
             putExtra("departText", departText)
+            putExtra("lead", lead)
         }
         val fullScreenPending = PendingIntent.getActivity(
             context, 0, fullScreenIntent,
@@ -42,7 +44,7 @@ class AlarmReceiver : BroadcastReceiver() {
 
         val noti = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
-            .setContentTitle("곧 출발합니다 · $departText")
+            .setContentTitle(if (lead > 0) "${lead}분 후 출발 · $departText" else "곧 출발합니다 · $departText")
             .setContentText("$title / $stop 출발")
             .setPriority(NotificationCompat.PRIORITY_MAX)
             .setCategory(NotificationCompat.CATEGORY_ALARM)

@@ -349,6 +349,55 @@ h3 {
 
 .alarm-controls .sound-label { margin-top: 4px; }
 
+.lead-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  width: 100%;
+}
+
+.lead-chip {
+  flex: 1 1 auto;
+  min-width: 84px;
+  width: auto !important;
+  margin: 0;
+  cursor: pointer;
+}
+
+.lead-chip input { display: none; }
+
+.lead-chip span {
+  display: block;
+  text-align: center;
+  padding: 10px 6px;
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--muted);
+  background: var(--card-bg);
+}
+
+.lead-chip input:checked + span {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+}
+
+.label-sub {
+  font-weight: 400;
+  font-size: 0.78rem;
+}
+
+.lead-hint {
+  width: 100%;
+  font-size: 0.78rem;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.lead-hint.warn { color: var(--danger); font-weight: 700; }
+
 .until-hint {
   width: 100%;
   font-size: 0.78rem;

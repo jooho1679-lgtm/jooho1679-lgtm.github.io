@@ -32,10 +32,12 @@ class AlarmActivity : AppCompatActivity() {
         val title = intent.getStringExtra("title") ?: ""
         val stop = intent.getStringExtra("stop") ?: ""
         val departText = intent.getStringExtra("departText") ?: ""
+        val lead = intent.getIntExtra("lead", 0)
 
         findViewById<TextView>(R.id.alarmTime).text = departText
         findViewById<TextView>(R.id.alarmStop).text = if (stop.isNotEmpty()) "$stop 출발" else "출발"
-        findViewById<TextView>(R.id.alarmTitle).text = title
+        findViewById<TextView>(R.id.alarmTitle).text =
+            if (lead > 0) "$title · ${lead}분 전" else title
 
         findViewById<Button>(R.id.alarmDismiss).setOnClickListener {
             stopAlerting()

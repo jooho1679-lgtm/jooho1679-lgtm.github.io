@@ -215,7 +215,8 @@
       dayCategory: state.dayCategory,
       routeLabel: state.route.label,
       tripNum: state.trip.trip,
-      untilIdx: (state.untilIdx === null || state.untilIdx === undefined) ? null : state.untilIdx
+      untilIdx: (state.untilIdx === null || state.untilIdx === undefined) ? null : state.untilIdx,
+      leads: getLeads()
     }));
   }
 
@@ -235,6 +236,7 @@
       state.trip = trip;
       state.untilIdx = (typeof obj.untilIdx === "number" &&
         obj.untilIdx >= 0 && obj.untilIdx < trip.stops.length) ? obj.untilIdx : null;
+      if (obj.leads && obj.leads.length) setLeads(obj.leads);
       return true;
     } catch (e) { return false; }
   }
@@ -302,6 +304,7 @@
         return kind ? '<br><span class="dh-kind">(' + kind + ')</span>' : '';
       })() + '</div>';
     renderUntilOptions();
+    updateLeadHint();
     renderScheduleList();
     updateNextDeparture();
     stopAllTimers();
@@ -318,6 +321,40 @@
   // 한 순번은 하루 전체(첫차~막차) 일정이라, 오전만 근무하는 기사님에게는
   // 오후 알람까지 울리게 된다. 그래서 '어디까지 운행하는지'를 직접 정할 수 있게 한다.
   // state.untilIdx = null 이면 막차까지 전부.
+  // 선택된 '몇 분 전' 목록 (여러 개 가능). 큰 값부터 정렬해서 돌려준다.
+  function getLeads() {
+    var vals = [];
+    var boxes = document.querySelectorAll("#leadOptions input[type=checkbox]");
+    Array.prototype.forEach.call(boxes, function (b) {
+      if (b.checked) vals.push(parseInt(b.value, 10));
+    });
+    vals.sort(function (a, b) { return b - a; });
+    return vals;
+  }
+
+  function setLeads(list) {
+    var boxes = document.querySelectorAll("#leadOptions input[type=checkbox]");
+    Array.prototype.forEach.call(boxes, function (b) {
+      b.checked = list.indexOf(parseInt(b.value, 10)) >= 0;
+    });
+  }
+
+  function updateLeadHint() {
+    var leads = getLeads();
+    var hint = $("leadHint");
+    if (leads.length === 0) {
+      hint.textContent = "※ 최소 한 개는 골라야 알림이 울립니다.";
+      hint.classList.add("warn");
+    } else if (leads.length === 1) {
+      hint.textContent = "출발 " + leads[0] + "분 전에 한 번 알려드립니다.";
+      hint.classList.remove("warn");
+    } else {
+      hint.textContent = "출발 " + leads.join("분·") + "분 전, 이렇게 " +
+        leads.length + "번 알려드립니다.";
+      hint.classList.remove("warn");
+    }
+  }
+
   function untilIndex() {
     return (state.untilIdx === null || state.untilIdx === undefined)
       ? state.trip.stops.length - 1
@@ -436,44 +473,65 @@
   function scheduleAlarms() {
     stopAllTimers();
     if (!state.alarmOn) return;
-    var leadMin = parseInt($("leadMinutes").value, 10);
+    var leads = getLeads();
+    if (leads.length === 0) return;
     var now = new Date();
+    var limitIdx = untilIndex();
 
     // 전용 앱에서는 안드로이드 시스템 알람에 맡긴다.
     // 화면이 꺼져 있어도, 앱을 닫아도 정확한 시각에 울린다.
     if (hasNativeAlarm()) {
+      var title = state.route.label + " " + state.trip.trip + "번차";
       var list = [];
-      var limit = untilIndex();
       state.trip.stops.forEach(function (s, idx) {
-        if (idx > limit) return;                    // 근무 종료 이후는 등록하지 않음
+        if (idx > limitIdx) return;                 // 근무 종료 이후는 등록하지 않음
         var depTime = parseTimeToday(s.time);
-        if (depTime - now <= 0) return;
-        list.push({
-          departAt: depTime.getTime(),
-          stop: s.stop,
-          departText: formatTime(s.time)
+        leads.forEach(function (lead) {
+          var trigger = depTime.getTime() - lead * 60000;
+          if (trigger - now.getTime() <= 0) return; // 이미 지난 알람은 제외
+          list.push({
+            triggerAt: trigger,
+            departAt: depTime.getTime(),
+            lead: lead,
+            stop: s.stop,
+            departText: formatTime(s.time)
+          });
         });
       });
-      var title = state.route.label + " " + state.trip.trip + "번차";
       try {
-        window.AndroidAlarm.scheduleAll(JSON.stringify(list), leadMin, title);
-      } catch (e) { /* 실패 시 아래 웹 타이머로 대체되지 않도록 조용히 무시 */ }
+        if (typeof window.AndroidAlarm.scheduleAll2 === "function") {
+          // 출발 한 건에 여러 번 알릴 수 있는 방식
+          window.AndroidAlarm.scheduleAll2(JSON.stringify(list), title);
+        } else {
+          // 예전 버전 앱: 한 가지 시점만 지원하므로 가장 이른 것 하나만 등록
+          var one = [];
+          state.trip.stops.forEach(function (s, idx) {
+            if (idx > limitIdx) return;
+            var depTime = parseTimeToday(s.time);
+            if (depTime - now <= 0) return;
+            one.push({ departAt: depTime.getTime(), stop: s.stop, departText: formatTime(s.time) });
+          });
+          window.AndroidAlarm.scheduleAll(JSON.stringify(one), leads[0], title);
+        }
+      } catch (e) { /* 실패해도 조용히 무시 */ }
       return;
     }
 
-    var limitIdx = untilIndex();
     state.trip.stops.forEach(function (s, idx) {
       if (idx > limitIdx) return;                   // 근무 종료 이후는 알리지 않음
       var depTime = parseTimeToday(s.time);
-      var alarmTime = new Date(depTime.getTime() - leadMin * 60000);
+      leads.forEach(function (lead) {
+      var alarmTime = new Date(depTime.getTime() - lead * 60000);
       var delay = alarmTime - now;
-      if (delay > 0 && !state.fired[idx]) {
+      var key = idx + "_" + lead;
+      if (delay > 0 && !state.fired[key]) {
         var tid = setTimeout(function () {
-          fireAlarm(s, leadMin);
-          state.fired[idx] = true;
+          fireAlarm(s, lead);
+          state.fired[key] = true;
         }, delay);
         state.timers.push(tid);
       }
+      });
     });
   }
 
@@ -518,7 +576,8 @@
 
   function buildICS() {
     var route = state.route, trip = state.trip;
-    var leadMin = parseInt($("leadMinutes").value, 10) || 10;
+    var leads = getLeads();
+    if (leads.length === 0) leads = [10];
     var now = new Date();
     var stamp = icsStamp(now);
     var lines = [
@@ -556,17 +615,20 @@
       lines.push("DTEND;TZID=Asia/Seoul:" + icsLocal(end));
       lines.push("SUMMARY:" + icsEscape(title));
       lines.push("DESCRIPTION:" + icsEscape(desc));
-      lines.push("BEGIN:VALARM");
-      lines.push("TRIGGER:-PT" + leadMin + "M");
-      lines.push("ACTION:DISPLAY");
-      lines.push("DESCRIPTION:" + icsEscape(leadMin + "분 후 출발 · " + s.stop));
-      lines.push("END:VALARM");
+      // 고른 시점마다 알림을 하나씩 넣는다 (여러 번 알림)
+      leads.forEach(function (lead) {
+        lines.push("BEGIN:VALARM");
+        lines.push("TRIGGER:-PT" + lead + "M");
+        lines.push("ACTION:DISPLAY");
+        lines.push("DESCRIPTION:" + icsEscape(lead + "분 후 출발 · " + s.stop));
+        lines.push("END:VALARM");
+      });
       lines.push("END:VEVENT");
       count++;
     });
     lines.push("END:VCALENDAR");
 
-    return { text: lines.map(icsFold).join("\r\n") + "\r\n", count: count, leadMin: leadMin };
+    return { text: lines.map(icsFold).join("\r\n") + "\r\n", count: count, leads: leads };
   }
 
   function exportICS() {
@@ -592,10 +654,10 @@
     var isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
       (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
     status.textContent = isIOS
-      ? "남은 출발 " + built.count + "건을 " + built.leadMin +
+      ? "남은 출발 " + built.count + "건을 " + built.leads.join("·") +
         "분 전 알림으로 만들었습니다. 화면 위 다운로드(↓) 표시나 '파일' 앱에서 " +
         "이 파일을 누른 뒤 [모두 추가]를 선택하세요."
-      : "남은 출발 " + built.count + "건을 " + built.leadMin +
+      : "남은 출발 " + built.count + "건을 " + built.leads.join("·") +
         "분 전 알림으로 만들었습니다. 받은 파일을 눌러 캘린더에 추가하세요.";
     status.classList.add("on");
   }
@@ -782,8 +844,8 @@
     var elBtn = $("enableAlarmBtn");
     if (state.alarmOn) {
       elStatus.textContent = hasNativeAlarm()
-        ? "폰 알람으로 등록됨 (" + $("leadMinutes").value + "분 전) · 화면이 꺼져도 울립니다"
-        : "알림이 켜져 있습니다 (" + $("leadMinutes").value + "분 전 알림)";
+        ? "폰 알람으로 등록됨 (" + getLeads().join("·") + "분 전) · 화면이 꺼져도 울립니다"
+        : "알림이 켜져 있습니다 (" + getLeads().join("·") + "분 전 알림)";
       elStatus.classList.add("on");
       elBtn.textContent = "🔕 알림 끄기";
     } else {
@@ -835,10 +897,28 @@
       applyBackTarget(target);
     });
 
-    $("leadMinutes").addEventListener("change", function () {
-      if (state.alarmOn) scheduleAlarms();
-      updateAlarmStatus();
-    });
+    Array.prototype.forEach.call(
+      document.querySelectorAll("#leadOptions input[type=checkbox]"),
+      function (box) {
+        box.addEventListener("change", function () {
+          var leads = getLeads();
+          if (leads.length === 0) {
+            // 전부 꺼두면 알림이 아예 없으므로 알림도 함께 끈다
+            if (state.alarmOn) {
+              state.alarmOn = false;
+              stopAllTimers();
+              if (hasNativeAlarm()) { try { window.AndroidAlarm.cancelAll(); } catch (e) {} }
+            }
+          } else if (state.alarmOn) {
+            state.fired = {};
+            scheduleAlarms();
+          }
+          saveSelection();
+          updateLeadHint();
+          updateAlarmStatus();
+        });
+      }
+    );
 
     $("enableAlarmBtn").addEventListener("click", toggleAlarm);
     $("exportIcsBtn").addEventListener("click", exportICS);

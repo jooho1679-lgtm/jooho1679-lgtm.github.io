@@ -27,7 +27,8 @@ object AlarmScheduler {
         val departAtMillis: Long,
         val title: String,
         val stop: String,
-        val departText: String
+        val departText: String,
+        val leadMinutes: Int = 0     // 출발 몇 분 전 알람인지
     )
 
     fun scheduleAll(context: Context, items: List<Item>) {
@@ -50,6 +51,7 @@ object AlarmScheduler {
                     putExtra("stop", item.stop)
                     putExtra("departText", item.departText)
                     putExtra("departAt", item.departAtMillis)
+                    putExtra("lead", item.leadMinutes)
                 },
                 pendingFlags()
             )
@@ -101,6 +103,7 @@ object AlarmScheduler {
                 put("title", i.title)
                 put("stop", i.stop)
                 put("departText", i.departText)
+                put("lead", i.leadMinutes)
             })
         }
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
@@ -120,7 +123,8 @@ object AlarmScheduler {
                     departAtMillis = o.getLong("departAt"),
                     title = o.optString("title"),
                     stop = o.optString("stop"),
-                    departText = o.optString("departText")
+                    departText = o.optString("departText"),
+                    leadMinutes = o.optInt("lead", 0)
                 )
             }
         } catch (e: Exception) {
