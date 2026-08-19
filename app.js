@@ -379,6 +379,119 @@
     });
   }
 
+  // ---- 폰 캘린더로 내보내기(.ics) ----
+  // 이 화면이 꺼져 있어도 휴대폰이 직접 알려주도록, 출발 시각을 캘린더 일정으로 만든다.
+
+  function icsEscape(text) {
+    return String(text)
+      .replace(/\\/g, "\\\\")
+      .replace(/;/g, "\\;")
+      .replace(/,/g, "\\,")
+      .replace(/\r?\n/g, "\\n");
+  }
+
+  // ics 규격상 한 줄은 75바이트를 넘으면 안 되므로 접어준다.
+  // 한글은 한 글자가 3바이트라 글자 중간이 잘리지 않게 바이트 기준으로 자른다.
+  function icsFold(line) {
+    var bytes = 0, out = "", buf = "";
+    for (var i = 0; i < line.length; i++) {
+      var ch = line[i];
+      var chBytes = unescape(encodeURIComponent(ch)).length;
+      if (bytes + chBytes > 72) {
+        out += buf + "\r\n ";
+        buf = "";
+        bytes = 1;
+      }
+      buf += ch;
+      bytes += chBytes;
+    }
+    return out + buf;
+  }
+
+  function icsStamp(d) {
+    return d.getUTCFullYear() + pad2(d.getUTCMonth() + 1) + pad2(d.getUTCDate()) + "T" +
+      pad2(d.getUTCHours()) + pad2(d.getUTCMinutes()) + pad2(d.getUTCSeconds()) + "Z";
+  }
+
+  function icsLocal(d) {
+    return d.getFullYear() + pad2(d.getMonth() + 1) + pad2(d.getDate()) + "T" +
+      pad2(d.getHours()) + pad2(d.getMinutes()) + "00";
+  }
+
+  function buildICS() {
+    var route = state.route, trip = state.trip;
+    var leadMin = parseInt($("leadMinutes").value, 10) || 10;
+    var now = new Date();
+    var stamp = icsStamp(now);
+    var lines = [
+      "BEGIN:VCALENDAR",
+      "VERSION:2.0",
+      "PRODID:-//Geongik//Bus Dispatch Alarm//KO",
+      "CALSCALE:GREGORIAN",
+      "METHOD:PUBLISH",
+      "BEGIN:VTIMEZONE",
+      "TZID:Asia/Seoul",
+      "BEGIN:STANDARD",
+      "DTSTART:19700101T000000",
+      "TZOFFSETFROM:+0900",
+      "TZOFFSETTO:+0900",
+      "TZNAME:KST",
+      "END:STANDARD",
+      "END:VTIMEZONE"
+    ];
+
+    var count = 0;
+    trip.stops.forEach(function (s, idx) {
+      var start = parseTimeToday(s.time);
+      if (start < now) return;          // 이미 지난 출발은 등록하지 않음
+      var end = new Date(start.getTime() + 5 * 60000);
+      var title = route.label + " " + trip.trip + "번차 · " + s.stop + " 출발";
+      var desc = route.origin + " ↔ " + route.destination + " / " +
+        dayCategoryLabel(state.dayCategory) + " 시간표" +
+        (s.note ? " / 경유: " + s.note : "");
+      lines.push("BEGIN:VEVENT");
+      lines.push("UID:geongik-" + todayStr(now) + "-" + route.label.replace(/\s/g, "") + "-" + trip.trip + "-" + idx + "@geongik");
+      lines.push("DTSTAMP:" + stamp);
+      lines.push("DTSTART;TZID=Asia/Seoul:" + icsLocal(start));
+      lines.push("DTEND;TZID=Asia/Seoul:" + icsLocal(end));
+      lines.push("SUMMARY:" + icsEscape(title));
+      lines.push("DESCRIPTION:" + icsEscape(desc));
+      lines.push("BEGIN:VALARM");
+      lines.push("TRIGGER:-PT" + leadMin + "M");
+      lines.push("ACTION:DISPLAY");
+      lines.push("DESCRIPTION:" + icsEscape(leadMin + "분 후 출발 · " + s.stop));
+      lines.push("END:VALARM");
+      lines.push("END:VEVENT");
+      count++;
+    });
+    lines.push("END:VCALENDAR");
+
+    return { text: lines.map(icsFold).join("\r\n") + "\r\n", count: count, leadMin: leadMin };
+  }
+
+  function exportICS() {
+    if (!state.route || !state.trip) return;
+    var built = buildICS();
+    var status = $("icsStatus");
+    if (built.count === 0) {
+      status.textContent = "오늘 남은 출발이 없어 등록할 일정이 없습니다.";
+      status.classList.remove("on");
+      return;
+    }
+    var blob = new Blob([built.text], { type: "text/calendar;charset=utf-8" });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    a.href = url;
+    a.download = "geongik-" + todayStr(new Date()) + ".ics";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+    status.textContent = "남은 출발 " + built.count + "건을 " + built.leadMin +
+      "분 전 알림으로 만들었습니다. 받은 파일을 눌러 캘린더에 추가하세요.";
+    status.classList.add("on");
+  }
+
   // ---- Alarm sound ----
   // 알림음은 취향 차이가 커서 기사님이 직접 고를 수 있게 여러 종류를 준비함.
   // 웹 오디오는 ±1.0이 최대치이고 넘기면 커지는 게 아니라 찌그러지기만 하므로,
@@ -615,6 +728,7 @@
     });
 
     $("enableAlarmBtn").addEventListener("click", toggleAlarm);
+    $("exportIcsBtn").addEventListener("click", exportICS);
     $("dismissAlarmBtn").addEventListener("click", function () {
       stopAlarmSound();
       $("alarmOverlay").classList.add("hidden");

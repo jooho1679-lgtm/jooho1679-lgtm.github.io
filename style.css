@@ -415,6 +415,33 @@ h3 {
 
 .volume-hint strong { color: var(--accent); }
 
+.calendar-box {
+  border-color: var(--success);
+  margin-top: 10px;
+}
+
+.calendar-box .cal-title {
+  width: 100%;
+  font-weight: 700;
+  color: var(--success);
+  font-size: 0.95rem;
+}
+
+.calendar-box .cal-desc {
+  width: 100%;
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.calendar-box .primary-btn {
+  background: var(--success);
+  width: 100%;
+}
+
+.calendar-box .primary-btn:active { background: #1B5E20; }
+
 .schedule-list {
   list-style: none;
   padding: 0;
