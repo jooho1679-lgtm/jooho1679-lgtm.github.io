@@ -1,4 +1,4 @@
-var CACHE_NAME = "geongik-schedule-v9";
+var CACHE_NAME = "geongik-schedule-v10";
 var ASSETS = [
   "./",
   "./index.html",
@@ -7,7 +7,8 @@ var ASSETS = [
   "./schedule-data.js",
   "./manifest.json",
   "./icon-192.png",
-  "./icon-512.png"
+  "./icon-512.png",
+  "./icon-maskable-512.png"
 ];
 
 self.addEventListener("install", function (event) {
