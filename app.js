@@ -298,6 +298,11 @@
     stopAllTimers();
     state.alarmOn = false;
     state.fired = {};
+    // 전용 앱에서는 등록해둔 시스템 알람이 화면을 벗어나도 살아 있으므로
+    // 실제 등록 상태를 읽어와 표시를 맞춘다
+    if (hasNativeAlarm()) {
+      try { state.alarmOn = window.AndroidAlarm.pendingCount() > 0; } catch (e) { /* ignore */ }
+    }
     updateAlarmStatus();
   }
 
@@ -360,11 +365,39 @@
     state.timers = [];
   }
 
+  // 전용 안드로이드 앱 안에서 실행 중인지 (있으면 시스템 알람을 쓸 수 있음)
+  function hasNativeAlarm() {
+    try {
+      return !!(window.AndroidAlarm && window.AndroidAlarm.isAvailable());
+    } catch (e) { return false; }
+  }
+
   function scheduleAlarms() {
     stopAllTimers();
     if (!state.alarmOn) return;
     var leadMin = parseInt($("leadMinutes").value, 10);
     var now = new Date();
+
+    // 전용 앱에서는 안드로이드 시스템 알람에 맡긴다.
+    // 화면이 꺼져 있어도, 앱을 닫아도 정확한 시각에 울린다.
+    if (hasNativeAlarm()) {
+      var list = [];
+      state.trip.stops.forEach(function (s) {
+        var depTime = parseTimeToday(s.time);
+        if (depTime - now <= 0) return;
+        list.push({
+          departAt: depTime.getTime(),
+          stop: s.stop,
+          departText: formatTime(s.time)
+        });
+      });
+      var title = state.route.label + " " + state.trip.trip + "번차";
+      try {
+        window.AndroidAlarm.scheduleAll(JSON.stringify(list), leadMin, title);
+      } catch (e) { /* 실패 시 아래 웹 타이머로 대체되지 않도록 조용히 무시 */ }
+      return;
+    }
+
     state.trip.stops.forEach(function (s, idx) {
       var depTime = parseTimeToday(s.time);
       var alarmTime = new Date(depTime.getTime() - leadMin * 60000);
@@ -673,7 +706,9 @@
     var elStatus = $("alarmStatus");
     var elBtn = $("enableAlarmBtn");
     if (state.alarmOn) {
-      elStatus.textContent = "알림이 켜져 있습니다 (" + $("leadMinutes").value + "분 전 알림)";
+      elStatus.textContent = hasNativeAlarm()
+        ? "폰 알람으로 등록됨 (" + $("leadMinutes").value + "분 전) · 화면이 꺼져도 울립니다"
+        : "알림이 켜져 있습니다 (" + $("leadMinutes").value + "분 전 알림)";
       elStatus.classList.add("on");
       elBtn.textContent = "🔕 알림 끄기";
     } else {
@@ -693,6 +728,9 @@
     } else {
       state.alarmOn = false;
       stopAllTimers();
+      if (hasNativeAlarm()) {
+        try { window.AndroidAlarm.cancelAll(); } catch (e) { /* ignore */ }
+      }
     }
     updateAlarmStatus();
   }
@@ -760,6 +798,21 @@
         playBeepSet();       // 평소에는 한 번만 미리듣기
       }
     });
+
+    // 전용 안드로이드 앱에서는 시스템 알람을 쓰므로 웹 제약 안내문이 맞지 않는다
+    if (hasNativeAlarm()) {
+      document.body.classList.add("native-app");
+      var disc = document.querySelector(".disclaimer");
+      if (disc) {
+        disc.textContent = "※ 이 앱은 휴대폰 시스템 알람을 사용합니다. " +
+          "화면이 꺼져 있거나 앱을 닫아도 정해진 시각에 알람이 울립니다.";
+      }
+      var calDesc = document.querySelector(".cal-desc");
+      if (calDesc) {
+        calDesc.textContent = "이 앱에서는 위 알림만으로 충분합니다. " +
+          "캘린더에도 함께 남기고 싶으면 아래 버튼을 누르세요.";
+      }
+    }
 
     renderRouteList();
 

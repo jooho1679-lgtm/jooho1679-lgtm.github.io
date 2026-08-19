@@ -1,0 +1,48 @@
+name: APK 빌드
+
+# 수동 실행 + android 폴더가 바뀔 때 자동 실행
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'android/**'
+      - '.github/workflows/android.yml'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 소스 받기
+        uses: actions/checkout@v4
+
+      - name: 자바 설치
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: 안드로이드 SDK 설치
+        uses: android-actions/setup-android@v3
+
+      - name: Gradle 준비
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: APK 빌드
+        working-directory: android
+        run: gradle assembleDebug --no-daemon --stacktrace
+
+      - name: APK 이름 정리
+        run: |
+          mkdir -p out
+          cp android/app/build/outputs/apk/debug/app-debug.apk "out/경익배차알림.apk"
+          ls -lh out
+
+      - name: APK 내려받기용으로 올리기
+        uses: actions/upload-artifact@v4
+        with:
+          name: 경익배차알림-APK
+          path: out/경익배차알림.apk
+          if-no-files-found: error
