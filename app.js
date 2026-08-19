@@ -274,11 +274,26 @@
   var MAX_RING_MS = 180000;   // 안전장치: 3분 뒤 자동 정지
 
   var audioCtx = null;
+  var masterGain = null;
   var ringTimer = null;
   var ringStopTimer = null;
 
+  // 음량 메모:
+  // 웹 오디오는 ±1.0이 최대치이고 그 이상은 그냥 잘려나가(왜곡) 더 커지지 않는다.
+  // 이전 버전은 여러 소리를 겹쳐 최대치를 1.29까지 넘겨서, 커지는 대신 찌그러지기만 했다.
+  // 같은 최대치에서 평균 음량이 가장 큰 파형은 '사각파'이므로,
+  // 사각파 하나를 왜곡 없이 최대치(0.98)로 내보내는 것이 소프트웨어로 낼 수 있는 가장 큰 소리다.
+  // 휴대폰 스피커는 저음이 잘 안 나오므로 주파수는 스피커 효율이 좋은 2~3kHz 대역을 사용.
+  var BEEP_VOLUME = 0.98;
+  var BEEP_FREQS = [2700, 2100];   // 번갈아 울려서 '삐뽀삐뽀' 형태로 주의를 끔
+
   function ensureAudioCtx() {
-    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (!audioCtx) {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      masterGain = audioCtx.createGain();
+      masterGain.gain.value = 1.0;
+      masterGain.connect(audioCtx.destination);
+    }
     // 브라우저가 오디오를 일시정지 시켜둔 경우 다시 켜기
     if (audioCtx.state === "suspended" && audioCtx.resume) audioCtx.resume();
     return audioCtx;
@@ -288,27 +303,22 @@
     try {
       var ctx = ensureAudioCtx();
       var now = ctx.currentTime;
-      BEEP_OFFSETS.forEach(function (offset) {
+      BEEP_OFFSETS.forEach(function (offset, i) {
         var start = now + offset;
         var end = start + BEEP_DURATION;
-        // 사각파(본음) + 사인파(배음)를 겹쳐서 더 크고 또렷하게
-        [
-          { type: "square", freq: 880, vol: 0.9 },
-          { type: "sine", freq: 1760, vol: 0.5 }
-        ].forEach(function (spec) {
-          var osc = ctx.createOscillator();
-          var gain = ctx.createGain();
-          osc.type = spec.type;
-          osc.frequency.value = spec.freq;
-          gain.gain.setValueAtTime(0.0001, start);
-          gain.gain.exponentialRampToValueAtTime(spec.vol, start + 0.02);
-          gain.gain.setValueAtTime(spec.vol, end - 0.06);
-          gain.gain.exponentialRampToValueAtTime(0.0001, end);
-          osc.connect(gain);
-          gain.connect(ctx.destination);
-          osc.start(start);
-          osc.stop(end + 0.02);
-        });
+        var osc = ctx.createOscillator();
+        var gain = ctx.createGain();
+        osc.type = "square";
+        osc.frequency.value = BEEP_FREQS[i % BEEP_FREQS.length];
+        // 딸깍 소리를 막을 만큼만 짧게 올리고 내림 → 나머지 구간은 계속 최대 음량 유지
+        gain.gain.setValueAtTime(0.0001, start);
+        gain.gain.exponentialRampToValueAtTime(BEEP_VOLUME, start + 0.008);
+        gain.gain.setValueAtTime(BEEP_VOLUME, end - 0.015);
+        gain.gain.exponentialRampToValueAtTime(0.0001, end);
+        osc.connect(gain);
+        gain.connect(masterGain);
+        osc.start(start);
+        osc.stop(end + 0.02);
       });
     } catch (e) { /* audio unavailable */ }
   }

@@ -321,6 +321,18 @@ h3 {
   font-weight: 700;
 }
 
+.volume-hint {
+  width: 100%;
+  font-size: 0.78rem;
+  color: var(--muted);
+  line-height: 1.5;
+  background: #FFF8E1;
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+
+.volume-hint strong { color: var(--accent); }
+
 .schedule-list {
   list-style: none;
   padding: 0;
@@ -426,4 +438,5 @@ h3 {
   .next-departure { border-color: #64B5F6; }
   .schedule-list li.next { background: #10304F; }
   .secondary-btn:active { background: #10304F; }
+  .volume-hint { background: #3A2A12; }
 }
