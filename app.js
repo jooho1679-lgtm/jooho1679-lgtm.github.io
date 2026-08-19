@@ -520,8 +520,16 @@
     a.click();
     document.body.removeChild(a);
     setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
-    status.textContent = "남은 출발 " + built.count + "건을 " + built.leadMin +
-      "분 전 알림으로 만들었습니다. 받은 파일을 눌러 캘린더에 추가하세요.";
+
+    // 아이폰은 파일이 '파일' 앱에 저장되므로 한 단계 더 안내가 필요하다
+    var isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+      (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+    status.textContent = isIOS
+      ? "남은 출발 " + built.count + "건을 " + built.leadMin +
+        "분 전 알림으로 만들었습니다. 화면 위 다운로드(↓) 표시나 '파일' 앱에서 " +
+        "이 파일을 누른 뒤 [모두 추가]를 선택하세요."
+      : "남은 출발 " + built.count + "건을 " + built.leadMin +
+        "분 전 알림으로 만들었습니다. 받은 파일을 눌러 캘린더에 추가하세요.";
     status.classList.add("on");
   }
 
