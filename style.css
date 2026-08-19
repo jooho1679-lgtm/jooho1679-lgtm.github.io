@@ -463,6 +463,20 @@ h3 {
   border-bottom: 2px solid var(--accent);
 }
 
+/* 차고지가 아니라 중간에서 출발하는 편 — 잘못 찾아가지 않도록 눈에 띄게 */
+.sl-mid {
+  display: inline-block;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #fff;
+  background: var(--accent);
+  padding: 1px 7px;
+  border-radius: 999px;
+  margin-left: 6px;
+}
+
+.schedule-list li.mid-start .sl-stop { font-weight: 700; }
+
 .sl-noalarm {
   font-size: 0.68rem;
   color: var(--muted);

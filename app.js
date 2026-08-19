@@ -336,6 +336,19 @@
   // 한 순번은 하루 전체(첫차~막차) 일정이라, 오전만 근무하는 기사님에게는
   // 오후 알람까지 울리게 된다. 그래서 '어디까지 운행하는지'를 직접 정할 수 있게 한다.
   // state.untilIdx = null 이면 막차까지 전부.
+  // 시간표에서 시각 옆에 적힌 장소(데이터의 note)는 '경유지'가 아니라
+  // 그 편이 실제로 출발하는 곳이다. 차고지에서 출발하는 편과 중간에서 출발하는 편이
+  // 같은 시각에 있을 수 있으므로(예: 가수원 5:25 / 원내동 5:25),
+  // 표시할 때는 반드시 실제 출발지를 써야 한다.
+  function departPoint(stop) {
+    return (stop.note && stop.note !== "") ? stop.note : stop.stop;
+  }
+
+  // 중간 출발지에서 시작하는 편인지 (차고지 출발과 구분해서 알려주기 위함)
+  function isMidStart(stop) {
+    return !!(stop.note && stop.note !== "");
+  }
+
   // 선택된 '몇 분 전' 목록 (여러 개 가능). 큰 값부터 정렬해서 돌려준다.
   function getLeads() {
     var vals = [];
@@ -380,7 +393,7 @@
     var limit = untilIndex();
     state.trip.stops.forEach(function (s, idx) {
       if (idx > limit) return;
-      if (names.indexOf(s.stop) < 0) names.push(s.stop);
+      if (names.indexOf(departPoint(s)) < 0) names.push(departPoint(s));
     });
     return names;
   }
@@ -389,7 +402,7 @@
     var limit = untilIndex();
     var n = 0;
     state.trip.stops.forEach(function (s, idx) {
-      if (idx <= limit && s.stop === name) n++;
+      if (idx <= limit && departPoint(s) === name) n++;
     });
     return n;
   }
@@ -509,7 +522,7 @@
       if (parseTimeToday(s.time) < now) return;   // 지난 출발은 고를 필요 없음
       var o = document.createElement("option");
       o.value = String(idx);
-      o.textContent = formatTime(s.time) + " " + s.stop + " 출발까지";
+      o.textContent = formatTime(s.time) + " " + departPoint(s) + " 출발까지";
       sel.appendChild(o);
     });
 
@@ -528,7 +541,7 @@
       hint.classList.remove("warn");
     } else {
       var s = state.trip.stops[idx];
-      hint.textContent = "※ " + formatTime(s.time) + " " + s.stop + " 출발까지만 알림이 울립니다. " +
+      hint.textContent = "※ " + formatTime(s.time) + " " + departPoint(s) + " 출발까지만 알림이 울립니다. " +
         "이후 출발은 알리지 않습니다.";
     }
   }
@@ -546,10 +559,12 @@
       // 근무 종료 이후 구간은 흐리게 표시하고 알림이 없다는 것을 알려준다
       if (idx > limitIdx) li.classList.add("after-shift");
       if (idx === limitIdx && idx < state.trip.stops.length - 1) li.classList.add("shift-end");
-      var noteHtml = s.note ? '<span class="sl-note">경유: ' + s.note + '</span>' : "";
+      // 중간 출발지에서 시작하는 편은 눈에 띄게 표시 (차고지로 잘못 가지 않도록)
+      var midHtml = isMidStart(s) ? '<span class="sl-mid">중간출발</span>' : "";
       var offHtml = (idx > limitIdx) ? '<span class="sl-noalarm">알림 없음</span>' : "";
+      if (isMidStart(s)) li.classList.add("mid-start");
       li.innerHTML =
-        '<span class="sl-stop">' + s.stop + ' 출발' + noteHtml + offHtml + '</span>' +
+        '<span class="sl-stop">' + departPoint(s) + ' 출발' + midHtml + offHtml + '</span>' +
         '<span class="sl-time">' + formatTime(s.time) + '</span>';
       ul.appendChild(li);
     });
@@ -580,7 +595,7 @@
       return;
     }
     var s = state.trip.stops[idx];
-    $("ndStop").textContent = s.stop + " 출발";
+    $("ndStop").textContent = departPoint(s) + " 출발";
     $("ndTime").textContent = formatTime(s.time);
     var diffMs = parseTimeToday(s.time) - new Date();
     var diffMin = Math.floor(diffMs / 60000);
@@ -623,14 +638,14 @@
       state.trip.stops.forEach(function (s, idx) {
         if (idx > limitIdx) return;                 // 근무 종료 이후는 등록하지 않음
         var depTime = parseTimeToday(s.time);
-        getLeadsFor(s.stop).forEach(function (lead) {
+        getLeadsFor(departPoint(s)).forEach(function (lead) {
           var trigger = depTime.getTime() - lead * 60000;
           if (trigger - now.getTime() <= 0) return; // 이미 지난 알람은 제외
           list.push({
             triggerAt: trigger,
             departAt: depTime.getTime(),
             lead: lead,
-            stop: s.stop,
+            stop: departPoint(s),
             departText: formatTime(s.time)
           });
         });
@@ -645,12 +660,12 @@
           var fallbackLead = 10;
           state.trip.stops.forEach(function (s, idx) {
             if (idx > limitIdx) return;
-            var ls = getLeadsFor(s.stop);
+            var ls = getLeadsFor(departPoint(s));
             if (ls.length === 0) return;              // 알리지 않기로 한 출발지는 제외
             fallbackLead = ls[0];
             var depTime = parseTimeToday(s.time);
             if (depTime - now <= 0) return;
-            one.push({ departAt: depTime.getTime(), stop: s.stop, departText: formatTime(s.time) });
+            one.push({ departAt: depTime.getTime(), stop: departPoint(s), departText: formatTime(s.time) });
           });
           window.AndroidAlarm.scheduleAll(JSON.stringify(one), fallbackLead, title);
         }
@@ -661,7 +676,7 @@
     state.trip.stops.forEach(function (s, idx) {
       if (idx > limitIdx) return;                   // 근무 종료 이후는 알리지 않음
       var depTime = parseTimeToday(s.time);
-      getLeadsFor(s.stop).forEach(function (lead) {
+      getLeadsFor(departPoint(s)).forEach(function (lead) {
       var alarmTime = new Date(depTime.getTime() - lead * 60000);
       var delay = alarmTime - now;
       var key = idx + "_" + lead;
@@ -743,13 +758,13 @@
       if (idx > limitIdx) return;       // 근무 종료 이후는 캘린더에도 넣지 않음
       var start = parseTimeToday(s.time);
       if (start < now) return;          // 이미 지난 출발은 등록하지 않음
-      var stopLeads = getLeadsFor(s.stop);
+      var stopLeads = getLeadsFor(departPoint(s));
       if (stopLeads.length === 0) return;   // 알리지 않기로 한 출발지는 제외
       var end = new Date(start.getTime() + 5 * 60000);
-      var title = route.label + " " + trip.trip + "번차 · " + s.stop + " 출발";
+      var title = route.label + " " + trip.trip + "번차 · " + departPoint(s) + " 출발";
       var desc = route.origin + " ↔ " + route.destination + " / " +
         dayCategoryLabel(state.dayCategory) + " 시간표" +
-        (s.note ? " / 경유: " + s.note : "");
+        (isMidStart(s) ? " / 중간 출발지에서 출발 (차고지 아님)" : "");
       lines.push("BEGIN:VEVENT");
       lines.push("UID:geongik-" + todayStr(now) + "-" + route.label.replace(/\s/g, "") + "-" + trip.trip + "-" + idx + "@geongik");
       lines.push("DTSTAMP:" + stamp);
@@ -763,7 +778,7 @@
         lines.push("BEGIN:VALARM");
         lines.push("TRIGGER:-PT" + lead + "M");
         lines.push("ACTION:DISPLAY");
-        lines.push("DESCRIPTION:" + icsEscape(lead + "분 후 출발 · " + s.stop));
+        lines.push("DESCRIPTION:" + icsEscape(lead + "분 후 출발 · " + departPoint(s)));
         lines.push("END:VALARM");
       });
       lines.push("END:VEVENT");
@@ -969,14 +984,16 @@
   }
 
   function fireAlarm(stop, leadMin) {
+    var where = departPoint(stop) + " 출발 · " + formatTime(stop.time) +
+      (isMidStart(stop) ? " (중간 출발지)" : "");
     $("alarmTitle").textContent = leadMin + "분 후 출발입니다!";
-    $("alarmDetail").textContent = stop.stop + " 출발 · " + formatTime(stop.time);
+    $("alarmDetail").textContent = where;
     $("alarmOverlay").classList.remove("hidden");
     startAlarmSound();
     if (window.Notification && Notification.permission === "granted") {
       try {
         new Notification("경익운수 배차 알림 - " + leadMin + "분 전", {
-          body: stop.stop + " 출발 · " + formatTime(stop.time),
+          body: where,
           icon: "icon-192.png"
         });
       } catch (e) { /* ignore */ }
