@@ -349,6 +349,38 @@ h3 {
 
 .alarm-controls .sound-label { margin-top: 4px; }
 
+.until-hint {
+  width: 100%;
+  font-size: 0.78rem;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+#untilStop {
+  width: 100%;
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  font-size: 0.95rem;
+  background: var(--card-bg);
+  color: var(--text);
+}
+
+/* 근무 종료 이후 구간은 알림이 없다는 것을 눈으로 알 수 있게 */
+.schedule-list li.after-shift {
+  opacity: 0.45;
+}
+
+.schedule-list li.shift-end {
+  border-bottom: 2px solid var(--accent);
+}
+
+.sl-noalarm {
+  font-size: 0.68rem;
+  color: var(--muted);
+  margin-left: 6px;
+}
+
 #soundProfile {
   width: 100%;
   padding: 10px;

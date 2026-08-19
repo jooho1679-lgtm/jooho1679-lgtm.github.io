@@ -12,7 +12,9 @@
     dayCategory: "weekday",
     alarmOn: false,
     timers: [],
-    fired: {}
+    fired: {},
+    untilIdx: null      // 근무 종료 시점(마지막으로 알림 받을 출발). null 이면 막차까지
+
   };
 
   var els = {};
@@ -126,6 +128,7 @@
     stopAllTimers();
     state.route = null;
     state.trip = null;
+    state.untilIdx = null;
     localStorage.removeItem(LS_KEY);
     renderDayTabs();
     renderRouteList();
@@ -198,6 +201,8 @@
   }
 
   function selectTrip(trip) {
+    // 순번을 새로 고르면 근무 종료 지점도 초기화
+    if (state.trip !== trip) state.untilIdx = null;
     state.trip = trip;
     saveSelection();
     showDashboard();
@@ -209,7 +214,8 @@
       date: todayStr(new Date()),
       dayCategory: state.dayCategory,
       routeLabel: state.route.label,
-      tripNum: state.trip.trip
+      tripNum: state.trip.trip,
+      untilIdx: (state.untilIdx === null || state.untilIdx === undefined) ? null : state.untilIdx
     }));
   }
 
@@ -227,6 +233,8 @@
       if (!trip) return false;
       state.route = route;
       state.trip = trip;
+      state.untilIdx = (typeof obj.untilIdx === "number" &&
+        obj.untilIdx >= 0 && obj.untilIdx < trip.stops.length) ? obj.untilIdx : null;
       return true;
     } catch (e) { return false; }
   }
@@ -293,6 +301,7 @@
         var kind = scheduleKindLabel(route, state.dayCategory);
         return kind ? '<br><span class="dh-kind">(' + kind + ')</span>' : '';
       })() + '</div>';
+    renderUntilOptions();
     renderScheduleList();
     updateNextDeparture();
     stopAllTimers();
@@ -306,18 +315,70 @@
     updateAlarmStatus();
   }
 
+  // 한 순번은 하루 전체(첫차~막차) 일정이라, 오전만 근무하는 기사님에게는
+  // 오후 알람까지 울리게 된다. 그래서 '어디까지 운행하는지'를 직접 정할 수 있게 한다.
+  // state.untilIdx = null 이면 막차까지 전부.
+  function untilIndex() {
+    return (state.untilIdx === null || state.untilIdx === undefined)
+      ? state.trip.stops.length - 1
+      : state.untilIdx;
+  }
+
+  function renderUntilOptions() {
+    var sel = $("untilStop");
+    sel.innerHTML = "";
+    var now = new Date();
+
+    var optAll = document.createElement("option");
+    optAll.value = "all";
+    optAll.textContent = "막차까지 전부 (기본)";
+    sel.appendChild(optAll);
+
+    state.trip.stops.forEach(function (s, idx) {
+      if (parseTimeToday(s.time) < now) return;   // 지난 출발은 고를 필요 없음
+      var o = document.createElement("option");
+      o.value = String(idx);
+      o.textContent = formatTime(s.time) + " " + s.stop + " 출발까지";
+      sel.appendChild(o);
+    });
+
+    sel.value = (state.untilIdx === null || state.untilIdx === undefined)
+      ? "all" : String(state.untilIdx);
+    if (!sel.value) sel.value = "all";
+    updateUntilHint();
+  }
+
+  function updateUntilHint() {
+    var hint = $("untilHint");
+    var idx = untilIndex();
+    var last = state.trip.stops.length - 1;
+    if (idx >= last) {
+      hint.textContent = "막차까지 모두 알려드립니다.";
+      hint.classList.remove("warn");
+    } else {
+      var s = state.trip.stops[idx];
+      hint.textContent = "※ " + formatTime(s.time) + " " + s.stop + " 출발까지만 알림이 울립니다. " +
+        "이후 출발은 알리지 않습니다.";
+    }
+  }
+
   function renderScheduleList() {
     var ul = $("scheduleList");
     ul.innerHTML = "";
     var now = new Date();
+    var limitIdx = untilIndex();
     state.trip.stops.forEach(function (s, idx) {
       var t = parseTimeToday(s.time);
       var li = document.createElement("li");
       li.dataset.idx = idx;
       if (t < now) li.classList.add("past");
+      // 근무 종료 이후 구간은 흐리게 표시하고 알림이 없다는 것을 알려준다
+      if (idx > limitIdx) li.classList.add("after-shift");
+      if (idx === limitIdx && idx < state.trip.stops.length - 1) li.classList.add("shift-end");
       var noteHtml = s.note ? '<span class="sl-note">경유: ' + s.note + '</span>' : "";
+      var offHtml = (idx > limitIdx) ? '<span class="sl-noalarm">알림 없음</span>' : "";
       li.innerHTML =
-        '<span class="sl-stop">' + s.stop + ' 출발' + noteHtml + '</span>' +
+        '<span class="sl-stop">' + s.stop + ' 출발' + noteHtml + offHtml + '</span>' +
         '<span class="sl-time">' + formatTime(s.time) + '</span>';
       ul.appendChild(li);
     });
@@ -382,7 +443,9 @@
     // 화면이 꺼져 있어도, 앱을 닫아도 정확한 시각에 울린다.
     if (hasNativeAlarm()) {
       var list = [];
-      state.trip.stops.forEach(function (s) {
+      var limit = untilIndex();
+      state.trip.stops.forEach(function (s, idx) {
+        if (idx > limit) return;                    // 근무 종료 이후는 등록하지 않음
         var depTime = parseTimeToday(s.time);
         if (depTime - now <= 0) return;
         list.push({
@@ -398,7 +461,9 @@
       return;
     }
 
+    var limitIdx = untilIndex();
     state.trip.stops.forEach(function (s, idx) {
+      if (idx > limitIdx) return;                   // 근무 종료 이후는 알리지 않음
       var depTime = parseTimeToday(s.time);
       var alarmTime = new Date(depTime.getTime() - leadMin * 60000);
       var delay = alarmTime - now;
@@ -474,7 +539,9 @@
     ];
 
     var count = 0;
+    var limitIdx = untilIndex();
     trip.stops.forEach(function (s, idx) {
+      if (idx > limitIdx) return;       // 근무 종료 이후는 캘린더에도 넣지 않음
       var start = parseTimeToday(s.time);
       if (start < now) return;          // 이미 지난 출발은 등록하지 않음
       var end = new Date(start.getTime() + 5 * 60000);
@@ -775,6 +842,17 @@
 
     $("enableAlarmBtn").addEventListener("click", toggleAlarm);
     $("exportIcsBtn").addEventListener("click", exportICS);
+
+    $("untilStop").addEventListener("change", function (e) {
+      state.untilIdx = (e.target.value === "all") ? null : parseInt(e.target.value, 10);
+      saveSelection();
+      updateUntilHint();
+      renderScheduleList();
+      updateNextDeparture();
+      // 이미 등록해둔 알람이 있으면 새 구간으로 다시 등록
+      if (state.alarmOn) scheduleAlarms();
+      updateAlarmStatus();
+    });
     $("dismissAlarmBtn").addEventListener("click", function () {
       stopAlarmSound();
       $("alarmOverlay").classList.add("hidden");
