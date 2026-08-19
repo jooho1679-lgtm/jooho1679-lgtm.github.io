@@ -182,6 +182,8 @@
       var last = trip.stops[trip.stops.length - 1];
       var btn = document.createElement("button");
       btn.className = "trip-card";
+      // 지금 보고 있던 순번을 표시해 되돌아왔을 때 바로 알아볼 수 있게 함
+      if (state.trip && state.trip.trip === trip.trip) btn.classList.add("selected");
       var subBadge = trip.subRoute ? '<div class="tc-sub">' + trip.subRoute + '번 운행</div>' : "";
       btn.innerHTML =
         '<div class="tc-num">' + trip.trip + '</div>' +
@@ -545,8 +547,16 @@
     $("backToRoute").addEventListener("click", function () { showView("view-route"); });
     $("backToRouteFromDash").addEventListener("click", function () {
       stopAllTimers();
+      stopAlarmSound();
       state.alarmOn = false;
-      showView("view-route");
+      state.fired = {};
+      // 노선까지 되돌아가지 않고, 같은 노선의 순번 목록으로 복귀
+      if (state.route) {
+        renderTripList();
+        showView("view-trip");
+      } else {
+        showView("view-route");
+      }
     });
 
     $("leadMinutes").addEventListener("change", function () {

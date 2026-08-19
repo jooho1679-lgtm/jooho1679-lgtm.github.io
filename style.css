@@ -231,6 +231,21 @@ h3 {
 
 .trip-card:active { transform: scale(0.97); }
 
+.trip-card.selected {
+  border-color: var(--primary);
+  border-width: 2px;
+  background: #E3F2FD;
+}
+
+.trip-card.selected::before {
+  content: "선택됨";
+  display: block;
+  font-size: 0.68rem;
+  color: var(--primary);
+  font-weight: 700;
+  margin-bottom: 2px;
+}
+
 .trip-card .tc-num {
   font-size: 1.3rem;
   font-weight: 800;
@@ -503,6 +518,7 @@ h3 {
   .route-card .rc-joint { background: #3A2A12; color: #FFB74D; }
   .route-card .rc-daykind { background: #16301B; color: #A5D6A7; }
   .trip-card .tc-sub { background: #10304F; color: #90CAF9; }
+  .trip-card.selected { background: #10304F; }
   .next-departure { border-color: #64B5F6; }
   .schedule-list li.next { background: #10304F; }
   .secondary-btn:active { background: #10304F; }
