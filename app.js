@@ -267,10 +267,11 @@
   }
 
   // ---- Alarm sound ----
-  // 한 번의 울림: 삐- 삐- 삐- (0.5초씩, 0.9초 간격) → 이후 잠시 쉬었다가 반복
-  var BEEP_DURATION = 0.5;
-  var BEEP_OFFSETS = [0, 0.9, 1.8];
-  var RING_CYCLE_MS = 4000;   // 울림 한 세트가 끝나고 다음 세트까지의 간격
+  // 한 번의 울림: 삐이- 뽀오- 삐이- (1.2초씩 길게, 사이 0.4초 쉼) = 4.4초
+  // 이후 1.6초 쉬고 반복 (6초 주기) → 확인 버튼 누를 때까지 계속
+  var BEEP_DURATION = 1.2;
+  var BEEP_OFFSETS = [0, 1.6, 3.2];
+  var RING_CYCLE_MS = 6000;   // 울림 한 세트가 끝나고 다음 세트까지의 간격
   var MAX_RING_MS = 180000;   // 안전장치: 3분 뒤 자동 정지
 
   var audioCtx = null;
@@ -324,7 +325,8 @@
   }
 
   function vibrateSet() {
-    if (navigator.vibrate) navigator.vibrate([600, 300, 600, 300, 600]);
+    // 진동도 소리와 같은 길이로 (1.2초 진동 / 0.4초 쉼) × 3
+    if (navigator.vibrate) navigator.vibrate([1200, 400, 1200, 400, 1200]);
   }
 
   function startAlarmSound() {
