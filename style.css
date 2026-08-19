@@ -277,6 +277,18 @@ h3 {
   width: 100%;
 }
 
+.alarm-controls .sound-label { margin-top: 4px; }
+
+#soundProfile {
+  width: 100%;
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  font-size: 0.95rem;
+  background: var(--card-bg);
+  color: var(--text);
+}
+
 .alarm-controls select {
   padding: 8px 10px;
   border-radius: 8px;

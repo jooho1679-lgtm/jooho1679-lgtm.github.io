@@ -267,26 +267,125 @@
   }
 
   // ---- Alarm sound ----
-  // 한 번의 울림: 삐이- 뽀오- 삐이- (1.2초씩 길게, 사이 0.4초 쉼) = 4.4초
-  // 이후 1.6초 쉬고 반복 (6초 주기) → 확인 버튼 누를 때까지 계속
-  var BEEP_DURATION = 1.2;
-  var BEEP_OFFSETS = [0, 1.6, 3.2];
-  var RING_CYCLE_MS = 6000;   // 울림 한 세트가 끝나고 다음 세트까지의 간격
+  // 알림음은 취향 차이가 커서 기사님이 직접 고를 수 있게 여러 종류를 준비함.
+  // 웹 오디오는 ±1.0이 최대치이고 넘기면 커지는 게 아니라 찌그러지기만 하므로,
+  // 각 소리는 최대치를 넘지 않는 선에서 가장 크게 울리도록 맞춰져 있다.
+  var REST_AFTER_SET = 1.6;   // 한 세트가 끝나고 다음 세트까지 쉬는 시간(초)
   var MAX_RING_MS = 180000;   // 안전장치: 3분 뒤 자동 정지
+  var LS_SOUND_KEY = "geongik_sound_v1";
 
   var audioCtx = null;
   var masterGain = null;
   var ringTimer = null;
   var ringStopTimer = null;
 
-  // 음량 메모:
-  // 웹 오디오는 ±1.0이 최대치이고 그 이상은 그냥 잘려나가(왜곡) 더 커지지 않는다.
-  // 이전 버전은 여러 소리를 겹쳐 최대치를 1.29까지 넘겨서, 커지는 대신 찌그러지기만 했다.
-  // 같은 최대치에서 평균 음량이 가장 큰 파형은 '사각파'이므로,
-  // 사각파 하나를 왜곡 없이 최대치(0.98)로 내보내는 것이 소프트웨어로 낼 수 있는 가장 큰 소리다.
-  // 휴대폰 스피커는 저음이 잘 안 나오므로 주파수는 스피커 효율이 좋은 2~3kHz 대역을 사용.
-  var BEEP_VOLUME = 0.98;
-  var BEEP_FREQS = [2700, 2100];   // 번갈아 울려서 '삐뽀삐뽀' 형태로 주의를 끔
+  // 한 음을 만든다. partials로 배음을 섞어 음색을 결정.
+  //   sustain: true  → 일정한 크기로 쭉 유지 (전자음/사이렌 계열)
+  //   sustain: false → 친 뒤 서서히 사라짐 (차임벨/실로폰 계열)
+  function playTone(ctx, start, opts) {
+    var partials = opts.partials || [{ m: 1, a: 1 }];
+    partials.forEach(function (p) {
+      var osc = ctx.createOscillator();
+      var gain = ctx.createGain();
+      osc.type = opts.type || "sine";
+      osc.frequency.setValueAtTime(opts.freq * p.m, start);
+      if (opts.sweepTo) {
+        osc.frequency.linearRampToValueAtTime(opts.sweepTo * p.m, start + opts.dur);
+      }
+      var vol = opts.vol * p.a;
+      var attack = opts.attack || 0.01;
+      gain.gain.setValueAtTime(0.0001, start);
+      gain.gain.exponentialRampToValueAtTime(vol, start + attack);
+      if (opts.sustain) {
+        gain.gain.setValueAtTime(vol, start + opts.dur - 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.0001, start + opts.dur);
+      } else if (opts.sustainLevel) {
+        // 종을 친 뒤 여운이 이어지는 형태.
+        // 그냥 감쇠만 시키면 소리가 너무 작아지므로 일정 크기로 울림을 유지한다.
+        // 높은 배음일수록 더 많이 줄여야 '땡그랑' 거리지 않고 부드럽게 남는다.
+        var sus = vol * opts.sustainLevel / (1 + (p.m - 1) * 0.55);
+        gain.gain.exponentialRampToValueAtTime(Math.max(sus, 0.0002), start + attack + (opts.decayTime || 0.25));
+        gain.gain.setValueAtTime(Math.max(sus, 0.0002), start + opts.dur - 0.18);
+        gain.gain.exponentialRampToValueAtTime(0.0001, start + opts.dur);
+      } else {
+        // 종소리처럼 자연스럽게 감쇠 (높은 배음이 먼저 사라지게)
+        gain.gain.exponentialRampToValueAtTime(0.0001, start + opts.dur / (1 + (p.m - 1) * 0.35));
+      }
+      osc.connect(gain);
+      gain.connect(masterGain);
+      osc.start(start);
+      osc.stop(start + opts.dur + 0.05);
+    });
+  }
+
+  var SOUND_PROFILES = {
+    chime: {
+      label: "차임벨 딩동 (가장 부드러움)",
+      setDuration: 4.6,
+      vibration: [500, 900, 500, 900, 500],
+      play: function (ctx, t0) {
+        // 딩- 동- 을 세 번. 종소리 배음이라 귀에 편안함.
+        var bell = [{ m: 1, a: 1 }, { m: 2, a: 0.4 }, { m: 3, a: 0.16 }, { m: 4.2, a: 0.08 }];
+        [0, 1.5, 3.0].forEach(function (off) {
+          // 두 음이 겹치므로 합쳐도 최대치를 넘지 않도록 vol을 낮게 잡음
+          playTone(ctx, t0 + off, { freq: 1318, vol: 0.38, dur: 1.35, partials: bell, attack: 0.006, sustainLevel: 0.75, decayTime: 0.2 });
+          playTone(ctx, t0 + off + 0.45, { freq: 1046, vol: 0.38, dur: 1.5, partials: bell, attack: 0.006, sustainLevel: 0.75, decayTime: 0.2 });
+        });
+      }
+    },
+    marimba: {
+      label: "실로폰 (맑고 순함)",
+      setDuration: 4.2,
+      vibration: [400, 500, 400, 500, 400],
+      play: function (ctx, t0) {
+        // 나무 타악기 느낌: 기본음 + 4배음, 짧게 통통 튀는 소리
+        var wood = [{ m: 1, a: 1 }, { m: 4, a: 0.25 }, { m: 10, a: 0.06 }];
+        [0, 0.55, 1.5, 2.05, 3.0, 3.55].forEach(function (off, i) {
+          playTone(ctx, t0 + off, {
+            freq: i % 2 === 0 ? 1568 : 1046,
+            vol: 0.54, dur: 0.85, partials: wood, attack: 0.004,
+            sustainLevel: 0.6, decayTime: 0.14
+          });
+        });
+      }
+    },
+    softbeep: {
+      label: "부드러운 전자음 (소리 큼)",
+      setDuration: 4.4,
+      vibration: [1200, 400, 1200, 400, 1200],
+      play: function (ctx, t0) {
+        // 삼각파는 사각파보다 배음이 훨씬 적어 덜 날카로움
+        [0, 1.6, 3.2].forEach(function (off, i) {
+          playTone(ctx, t0 + off, {
+            type: "triangle", freq: i % 2 === 0 ? 1046 : 880,
+            vol: 0.95, dur: 1.2, sustain: true, attack: 0.02
+          });
+        });
+      }
+    },
+    beep: {
+      label: "전자음 삐- (가장 큼·날카로움)",
+      setDuration: 4.4,
+      vibration: [1200, 400, 1200, 400, 1200],
+      play: function (ctx, t0) {
+        [0, 1.6, 3.2].forEach(function (off, i) {
+          playTone(ctx, t0 + off, {
+            type: "square", freq: i % 2 === 0 ? 2700 : 2100,
+            vol: 0.98, dur: 1.2, sustain: true, attack: 0.008
+          });
+        });
+      }
+    }
+  };
+
+  function getSoundProfileKey() {
+    var saved = localStorage.getItem(LS_SOUND_KEY);
+    return SOUND_PROFILES[saved] ? saved : "chime";
+  }
+
+  function currentProfile() {
+    return SOUND_PROFILES[getSoundProfileKey()];
+  }
 
   function ensureAudioCtx() {
     if (!audioCtx) {
@@ -303,40 +402,23 @@
   function playBeepSet() {
     try {
       var ctx = ensureAudioCtx();
-      var now = ctx.currentTime;
-      BEEP_OFFSETS.forEach(function (offset, i) {
-        var start = now + offset;
-        var end = start + BEEP_DURATION;
-        var osc = ctx.createOscillator();
-        var gain = ctx.createGain();
-        osc.type = "square";
-        osc.frequency.value = BEEP_FREQS[i % BEEP_FREQS.length];
-        // 딸깍 소리를 막을 만큼만 짧게 올리고 내림 → 나머지 구간은 계속 최대 음량 유지
-        gain.gain.setValueAtTime(0.0001, start);
-        gain.gain.exponentialRampToValueAtTime(BEEP_VOLUME, start + 0.008);
-        gain.gain.setValueAtTime(BEEP_VOLUME, end - 0.015);
-        gain.gain.exponentialRampToValueAtTime(0.0001, end);
-        osc.connect(gain);
-        gain.connect(masterGain);
-        osc.start(start);
-        osc.stop(end + 0.02);
-      });
+      currentProfile().play(ctx, ctx.currentTime);
     } catch (e) { /* audio unavailable */ }
   }
 
   function vibrateSet() {
-    // 진동도 소리와 같은 길이로 (1.2초 진동 / 0.4초 쉼) × 3
-    if (navigator.vibrate) navigator.vibrate([1200, 400, 1200, 400, 1200]);
+    if (navigator.vibrate) navigator.vibrate(currentProfile().vibration);
   }
 
   function startAlarmSound() {
     stopAlarmSound();
+    var cycleMs = (currentProfile().setDuration + REST_AFTER_SET) * 1000;
     playBeepSet();
     vibrateSet();
     ringTimer = setInterval(function () {
       playBeepSet();
       vibrateSet();
-    }, RING_CYCLE_MS);
+    }, cycleMs);
     ringStopTimer = setTimeout(stopAlarmSound, MAX_RING_MS);
   }
 
@@ -426,6 +508,27 @@
       ensureAudioCtx();
       playBeepSet();
       vibrateSet();
+    });
+
+    // 알림음 선택 목록 구성
+    var soundSel = $("soundProfile");
+    Object.keys(SOUND_PROFILES).forEach(function (key) {
+      var opt = document.createElement("option");
+      opt.value = key;
+      opt.textContent = SOUND_PROFILES[key].label;
+      soundSel.appendChild(opt);
+    });
+    soundSel.value = getSoundProfileKey();
+    soundSel.addEventListener("change", function () {
+      localStorage.setItem(LS_SOUND_KEY, soundSel.value);
+      // 고른 소리를 바로 들려줌
+      ensureAudioCtx();
+      var ringingNow = !$("alarmOverlay").classList.contains("hidden");
+      if (ringingNow) {
+        startAlarmSound();   // 지금 울리는 중이면 새 소리로 이어서 울림
+      } else {
+        playBeepSet();       // 평소에는 한 번만 미리듣기
+      }
     });
 
     renderRouteList();
