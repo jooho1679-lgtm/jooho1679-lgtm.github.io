@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 버스 모양 아이콘 (안전영역 안에 들어가도록 여백을 둠) -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- 차체 -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M36,32 L72,32 A6,6 0 0 1 78,38 L78,68 A4,4 0 0 1 74,72 L34,72 A4,4 0 0 1 30,68 L30,38 A6,6 0 0 1 36,32 Z" />
+    <!-- 창문 -->
+    <path
+        android:fillColor="#1565C0"
+        android:pathData="M35,39 L52,39 L52,52 L35,52 Z" />
+    <path
+        android:fillColor="#1565C0"
+        android:pathData="M56,39 L73,39 L73,52 L56,52 Z" />
+    <!-- 바퀴 -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M38,72 m-5,0 a5,5 0 1,0 10,0 a5,5 0 1,0 -10,0" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M70,72 m-5,0 a5,5 0 1,0 10,0 a5,5 0 1,0 -10,0" />
+</vector>

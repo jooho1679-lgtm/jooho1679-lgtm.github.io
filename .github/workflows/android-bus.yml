@@ -1,0 +1,65 @@
+name: 경익버스 APK 빌드
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'android-bus/**'
+      - '.github/workflows/android-bus.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 소스 받기
+        uses: actions/checkout@v4
+
+      - name: 자바 설치
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: 안드로이드 SDK 설치
+        uses: android-actions/setup-android@v3
+
+      - name: Gradle 준비
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: APK 빌드
+        working-directory: android-bus
+        run: gradle assembleDebug --no-daemon --stacktrace
+
+      - name: APK 이름 정리
+        run: |
+          mkdir -p out
+          cp android-bus/app/build/outputs/apk/debug/app-debug.apk out/geongik-bus-alarm.apk
+          ls -lh out
+
+      - name: APK 내려받기용으로 올리기
+        uses: actions/upload-artifact@v4
+        with:
+          name: geongik-bus-alarm-apk
+          path: out/geongik-bus-alarm.apk
+          if-no-files-found: error
+
+      # 카카오톡은 apk 파일 전송을 막으므로 공개 다운로드 링크로 배포한다.
+      # 경익운수 앱과 태그를 나눠 서로 덮어쓰지 않게 한다.
+      - name: 공개 다운로드 링크로 배포
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: bus-app
+          name: 경익버스알림 앱
+          body: |
+            경익버스 기사님용 배차 알림 앱입니다.
+
+            아래 `geongik-bus-alarm.apk` 를 눌러 내려받아 설치하세요.
+            설치 안내: https://jooho1679-lgtm.github.io/bus/app.html
+          files: out/geongik-bus-alarm.apk
+          make_latest: false

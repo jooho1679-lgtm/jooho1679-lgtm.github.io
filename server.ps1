@@ -38,7 +38,8 @@ while ($true) {
         $path = "/index.html"
         if ($requestLine -match '^[A-Z]+\s+(\S+)\s+HTTP') { $path = $matches[1] }
         $path = ($path -split '\?')[0]
-        if ($path -eq "/") { $path = "/index.html" }
+        # 폴더 경로면 index.html 을 찾는다 (GitHub Pages 와 같은 동작)
+        if ($path.EndsWith("/")) { $path = $path + "index.html" }
         $decodedPath = [System.Uri]::UnescapeDataString($path)
         $filePath = Join-Path $root ($decodedPath.TrimStart("/"))
 

@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>경익버스 배차 알림</title>
+<meta name="theme-color" content="#00695C">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar-title">🚍 경익버스 배차 알림</div>
+  <div class="topbar-date" id="todayInfo">-</div>
+  <button id="installBtn" class="install-btn hidden">📲 앱으로 설치</button>
+</header>
+
+<main id="app">
+
+  <!-- 요일 구분 확인 바 -->
+  <section class="daytype-bar" id="daytypeBar">
+    <div class="daytype-current">적용 시간표</div>
+    <div class="daytype-tabs" id="dayTabs">
+      <button class="day-tab" data-day="weekday">평일</button>
+      <button class="day-tab" data-day="saturday">토요일</button>
+      <button class="day-tab" data-day="holiday">휴일</button>
+    </div>
+    <div class="daytype-note" id="dayNote"></div>
+  </section>
+
+  <!-- 1단계: 노선 선택 -->
+  <section id="view-route" class="view">
+    <h2>1. 오늘 배차된 노선을 선택하세요</h2>
+    <div class="route-list" id="routeList"></div>
+  </section>
+
+  <!-- 2단계: 순번 선택 -->
+  <section id="view-trip" class="view hidden">
+    <button class="back-btn" id="backToRoute">← 노선 다시 선택</button>
+    <h2 id="tripRouteTitle">2. 배차 순번(차번호)을 선택하세요</h2>
+    <div class="trip-list" id="tripList"></div>
+  </section>
+
+  <!-- 3단계: 알림 대시보드 -->
+  <section id="view-dashboard" class="view hidden">
+    <button class="back-btn" id="backToRouteFromDash">← 순번 다시 선택</button>
+
+    <div class="dash-header" id="dashHeader"></div>
+
+    <div class="next-departure" id="nextDeparture">
+      <div class="nd-label">다음 출발</div>
+      <div class="nd-stop" id="ndStop">-</div>
+      <div class="nd-time" id="ndTime">--:--</div>
+      <div class="nd-countdown" id="ndCountdown">-</div>
+    </div>
+
+    <div class="alarm-controls">
+      <label for="untilStop">어디까지 운행하시나요? (근무 종료 시점)</label>
+      <select id="untilStop"></select>
+      <div class="until-hint" id="untilHint"></div>
+
+      <div id="globalLeadBox" class="lead-block">
+        <label>몇 분 전에 알려드릴까요? <span class="label-sub">(여러 개 고를 수 있어요)</span></label>
+        <div class="lead-options" id="leadOptions">
+          <label class="lead-chip"><input type="checkbox" value="30"><span>30분 전</span></label>
+          <label class="lead-chip"><input type="checkbox" value="20"><span>20분 전</span></label>
+          <label class="lead-chip"><input type="checkbox" value="15"><span>15분 전</span></label>
+          <label class="lead-chip"><input type="checkbox" value="10" checked><span>10분 전</span></label>
+          <label class="lead-chip"><input type="checkbox" value="5"><span>5분 전</span></label>
+        </div>
+        <div class="lead-hint" id="leadHint"></div>
+      </div>
+
+      <label class="perstop-toggle">
+        <input type="checkbox" id="perStopChk">
+        <span>출발지마다 다르게 설정하기</span>
+      </label>
+      <div id="perStopArea" class="hidden"></div>
+      <label for="soundProfile" class="sound-label">알림음 종류 (바꾸면 바로 들려드려요)</label>
+      <select id="soundProfile"></select>
+      <button id="enableAlarmBtn" class="primary-btn">🔔 알림 켜기</button>
+      <button id="testSoundBtn" class="secondary-btn">🔊 소리 테스트</button>
+      <div class="alarm-status" id="alarmStatus">알림이 꺼져 있습니다</div>
+      <div class="volume-hint">
+        소리가 작으면 휴대폰 <strong>미디어 볼륨</strong>을 올려주세요.
+        (아이폰은 측면 <strong>무음 스위치</strong>가 켜져 있으면 소리가 안 납니다)
+      </div>
+    </div>
+
+    <div class="alarm-controls calendar-box">
+      <div class="cal-title">📅 폰 캘린더에 등록 (화면 꺼져도 알림)</div>
+      <p class="cal-desc">
+        위 알림은 이 화면이 켜져 있어야 울립니다.
+        <strong>화면을 꺼두거나 앱을 닫아도 확실히 받으시려면</strong> 아래 버튼으로
+        오늘 출발 시간을 휴대폰 캘린더에 등록하세요. 폰이 알아서 알려줍니다.
+      </p>
+      <button id="exportIcsBtn" class="primary-btn">📅 오늘 출발시간 캘린더에 등록</button>
+      <div class="alarm-status" id="icsStatus"></div>
+    </div>
+
+    <h3>오늘의 전체 출발 시간표</h3>
+    <ol class="schedule-list" id="scheduleList"></ol>
+
+    <p class="disclaimer">
+      ※ 이 알림은 이 화면(브라우저 탭)이 켜져 있는 동안 동작합니다. 화면이 꺼지거나 앱이 완전히 종료되면
+      알림이 울리지 않을 수 있으니, 화면을 켜둔 채로 두거나 휴대폰 자체 알람을 보조 수단으로 함께 사용하세요.
+    </p>
+  </section>
+
+</main>
+
+<!-- 알람 발생 오버레이 -->
+<div id="alarmOverlay" class="alarm-overlay hidden">
+  <div class="alarm-box">
+    <div class="alarm-icon">⏰</div>
+    <div class="alarm-title" id="alarmTitle">출발 준비 시간입니다!</div>
+    <div class="alarm-detail" id="alarmDetail"></div>
+    <button id="dismissAlarmBtn" class="primary-btn">확인</button>
+  </div>
+</div>
+
+<script src="schedule-data.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
