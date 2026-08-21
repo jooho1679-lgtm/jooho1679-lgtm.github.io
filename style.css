@@ -526,16 +526,29 @@ h3 {
 
 .secondary-btn:active { background: #E3F2FD; }
 
+/* 알림이 켜졌는지 꺼졌는지 한눈에 보이도록 배경색까지 바꾼다 */
 .alarm-status {
   width: 100%;
-  font-size: 0.8rem;
+  font-size: 0.88rem;
+  font-weight: 700;
   color: var(--muted);
+  background: #ECEFF1;
+  padding: 11px 13px;
+  border-radius: 10px;
+  line-height: 1.5;
 }
 
 .alarm-status.on {
-  color: var(--success);
-  font-weight: 700;
+  color: #1B5E20;
+  background: #D9F0DB;
 }
+
+/* 켜져 있을 때는 버튼이 '끄기'이므로 빨간색으로 확실히 구분 */
+.primary-btn.alarm-on {
+  background: var(--danger);
+}
+
+.primary-btn.alarm-on:active { background: #9A1B1B; }
 
 .volume-hint {
   width: 100%;

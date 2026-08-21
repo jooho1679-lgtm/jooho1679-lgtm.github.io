@@ -1020,15 +1020,19 @@
     var elStatus = $("alarmStatus");
     var elBtn = $("enableAlarmBtn");
     if (state.alarmOn) {
-      elStatus.textContent = hasNativeAlarm()
-        ? "폰 알람으로 등록됨 (" + alarmSummaryText() + ") · 화면이 꺼져도 울립니다"
-        : "알림이 켜져 있습니다 (" + alarmSummaryText() + ")";
+      // 켜진 상태: 초록 배경 + 버튼은 빨간색(누르면 꺼짐)
+      elStatus.textContent = "✅ 알림 켜짐 — " + (hasNativeAlarm()
+        ? alarmSummaryText() + " · 화면이 꺼져도 울립니다"
+        : alarmSummaryText() + "에 울립니다");
       elStatus.classList.add("on");
       elBtn.textContent = "🔕 알림 끄기";
+      elBtn.classList.add("alarm-on");
     } else {
-      elStatus.textContent = "알림이 꺼져 있습니다";
+      // 꺼진 상태: 회색 배경 + 버튼은 기본색(누르면 켜짐)
+      elStatus.textContent = "⛔ 알림 꺼짐 — 아래 [알림 켜기] 버튼을 눌러주세요";
       elStatus.classList.remove("on");
       elBtn.textContent = "🔔 알림 켜기";
+      elBtn.classList.remove("alarm-on");
     }
   }
 
