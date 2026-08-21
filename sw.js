@@ -1,4 +1,4 @@
-var CACHE_NAME = "geongik-schedule-v19";
+var CACHE_NAME = "geongik-schedule-v20";
 var ASSETS = [
   "./",
   "./index.html",
