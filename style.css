@@ -543,12 +543,43 @@ h3 {
   background: #D9F0DB;
 }
 
-/* 켜져 있을 때는 버튼이 '끄기'이므로 빨간색으로 확실히 구분 */
-.primary-btn.alarm-on {
-  background: var(--danger);
+/* 켜기·끄기 버튼을 나란히 두고, 지금 상태인 쪽을 칠해서 보여준다 */
+.alarm-toggle {
+  display: flex;
+  gap: 8px;
+  width: 100%;
 }
 
-.primary-btn.alarm-on:active { background: #9A1B1B; }
+.alarm-btn {
+  flex: 1;
+  padding: 14px 8px;
+  border: 2px solid var(--border);
+  background: var(--card-bg);
+  color: var(--muted);
+  border-radius: 10px;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+/* 지금 켜져 있음 */
+.alarm-btn.on-btn.active {
+  background: var(--success);
+  border-color: var(--success);
+  color: #fff;
+}
+
+/* 지금 꺼져 있음 */
+.alarm-btn.off-btn.active {
+  background: #546E7A;
+  border-color: #546E7A;
+  color: #fff;
+}
+
+/* 선택되지 않은 쪽을 눌렀을 때 */
+.alarm-btn:not(.active):active {
+  background: #ECEFF1;
+}
 
 .volume-hint {
   width: 100%;

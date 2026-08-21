@@ -81,7 +81,10 @@
       <div id="perStopArea" class="hidden"></div>
       <label for="soundProfile" class="sound-label">알림음 종류 (바꾸면 바로 들려드려요)</label>
       <select id="soundProfile"></select>
-      <button id="enableAlarmBtn" class="primary-btn">🔔 알림 켜기</button>
+      <div class="alarm-toggle">
+        <button id="alarmOnBtn" class="alarm-btn on-btn">🔔 알림 켜기</button>
+        <button id="alarmOffBtn" class="alarm-btn off-btn">🔕 알림 끄기</button>
+      </div>
       <button id="testSoundBtn" class="secondary-btn">🔊 소리 테스트</button>
       <div class="alarm-status" id="alarmStatus">알림이 꺼져 있습니다</div>
       <div class="volume-hint">

@@ -1,4 +1,4 @@
-var CACHE_NAME = "geongikbus-schedule-v4";
+var CACHE_NAME = "geongikbus-schedule-v5";
 var ASSETS = [
   "./",
   "./index.html",

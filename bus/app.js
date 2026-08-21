@@ -1018,30 +1018,36 @@
 
   function updateAlarmStatus() {
     var elStatus = $("alarmStatus");
-    var elBtn = $("enableAlarmBtn");
+    var onBtn = $("alarmOnBtn");
+    var offBtn = $("alarmOffBtn");
+    // 두 버튼을 나란히 두고, 지금 상태인 쪽만 색을 칠한다
+    if (onBtn) onBtn.classList.toggle("active", state.alarmOn);
+    if (offBtn) offBtn.classList.toggle("active", !state.alarmOn);
+
     if (state.alarmOn) {
-      // 켜진 상태: 초록 배경 + 버튼은 빨간색(누르면 꺼짐)
       elStatus.textContent = "✅ 알림 켜짐 — " + (hasNativeAlarm()
         ? alarmSummaryText() + " · 화면이 꺼져도 울립니다"
         : alarmSummaryText() + "에 울립니다");
       elStatus.classList.add("on");
-      elBtn.textContent = "🔕 알림 끄기";
-      elBtn.classList.add("alarm-on");
     } else {
-      // 꺼진 상태: 회색 배경 + 버튼은 기본색(누르면 켜짐)
-      elStatus.textContent = "⛔ 알림 꺼짐 — 아래 [알림 켜기] 버튼을 눌러주세요";
+      elStatus.textContent = "⛔ 알림 꺼짐 — [알림 켜기] 를 눌러주세요";
       elStatus.classList.remove("on");
-      elBtn.textContent = "🔔 알림 켜기";
-      elBtn.classList.remove("alarm-on");
     }
   }
 
-  function toggleAlarm() {
-    if (!state.alarmOn) {
+  // 버튼이 두 개이므로 '누르면 반대로'가 아니라 원하는 상태를 그대로 지정한다
+  function setAlarm(on) {
+    if (on) {
       if (window.Notification && Notification.permission === "default") {
         Notification.requestPermission();
       }
+      if (getLeads().length === 0 && !state.perStop) {
+        updateLeadHint();
+        updateAlarmStatus();
+        return;                       // 알릴 시점을 하나도 안 골랐으면 켜지지 않음
+      }
       state.alarmOn = true;
+      state.fired = {};
       scheduleAlarms();
     } else {
       state.alarmOn = false;
@@ -1108,7 +1114,8 @@
       updateAlarmStatus();
     });
 
-    $("enableAlarmBtn").addEventListener("click", toggleAlarm);
+    $("alarmOnBtn").addEventListener("click", function () { setAlarm(true); });
+    $("alarmOffBtn").addEventListener("click", function () { setAlarm(false); });
     $("exportIcsBtn").addEventListener("click", exportICS);
 
     $("untilStop").addEventListener("change", function (e) {
