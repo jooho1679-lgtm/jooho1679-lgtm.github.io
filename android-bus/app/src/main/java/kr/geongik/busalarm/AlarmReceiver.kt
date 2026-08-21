@@ -1,83 +1,39 @@
 package kr.geongik.busalarm
 
-import android.app.NotificationChannel
-import android.app.NotificationManager
-import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.os.Build
-import androidx.core.app.NotificationCompat
 
 /**
  * 알람 시각이 되면 호출된다.
- * 잠금화면 위에 뜨는 전체화면 알람 + 알림을 함께 띄운다.
- * (전체화면이 제조사 정책으로 막히더라도 알림은 남도록 이중으로 처리)
+ *
+ * 예전에는 여기서 알람 화면을 직접 띄우려 했는데,
+ * 다른 앱을 쓰는 중에는 안드로이드가 화면 띄우기를 막아서 소리가 나지 않았다.
+ * 그래서 화면 대신 '소리를 내는 서비스'를 시작하도록 바꿨다.
+ * 화면은 서비스가 올리는 알림(전체화면 인텐트)이 담당한다.
  */
 class AlarmReceiver : BroadcastReceiver() {
 
     companion object {
-        const val CHANNEL_ID = "geongikbus_departure_alarm"
-        const val NOTI_ID = 4321
+        // 예전 코드에서 참조하던 값들을 서비스 쪽으로 옮김
+        const val NOTI_ID = AlarmService.NOTI_ID
     }
 
     override fun onReceive(context: Context, intent: Intent) {
-        val title = intent.getStringExtra("title") ?: "출발 알림"
-        val stop = intent.getStringExtra("stop") ?: ""
-        val departText = intent.getStringExtra("departText") ?: ""
-        val lead = intent.getIntExtra("lead", 0)
-
-        createChannel(context)
-
-        val fullScreenIntent = Intent(context, AlarmActivity::class.java).apply {
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
-            putExtra("title", title)
-            putExtra("stop", stop)
-            putExtra("departText", departText)
-            putExtra("lead", lead)
+        val svc = Intent(context, AlarmService::class.java).apply {
+            action = AlarmService.ACTION_START
+            putExtra("title", intent.getStringExtra("title"))
+            putExtra("stop", intent.getStringExtra("stop"))
+            putExtra("departText", intent.getStringExtra("departText"))
+            putExtra("departAt", intent.getLongExtra("departAt", 0L))
+            putExtra("lead", intent.getIntExtra("lead", 0))
         }
-        val fullScreenPending = PendingIntent.getActivity(
-            context, 0, fullScreenIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT or
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_IMMUTABLE else 0
-        )
-
-        val noti = NotificationCompat.Builder(context, CHANNEL_ID)
-            .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
-            .setContentTitle(if (lead > 0) "${lead}분 후 출발 · $departText" else "곧 출발합니다 · $departText")
-            .setContentText("$title / $stop 출발")
-            .setPriority(NotificationCompat.PRIORITY_MAX)
-            .setCategory(NotificationCompat.CATEGORY_ALARM)
-            .setAutoCancel(true)
-            .setOngoing(false)
-            .setFullScreenIntent(fullScreenPending, true)
-            .setContentIntent(fullScreenPending)
-            .build()
-
-        val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        nm.notify(NOTI_ID, noti)
-
-        // 전체화면 알람 직접 실행 (잠금화면 위에 표시)
-        try {
-            context.startActivity(fullScreenIntent)
-        } catch (e: Exception) {
-            // 백그라운드 실행이 제한된 경우에는 위 알림이 대신 뜬다
+        // 정확한 알람으로 깨어난 직후에는 백그라운드에서도 서비스 시작이 허용된다
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            context.startForegroundService(svc)
+        } else {
+            context.startService(svc)
         }
-    }
-
-    private fun createChannel(context: Context) {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
-        val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        if (nm.getNotificationChannel(CHANNEL_ID) != null) return
-        val channel = NotificationChannel(
-            CHANNEL_ID,
-            "출발 알람",
-            NotificationManager.IMPORTANCE_HIGH
-        ).apply {
-            description = "배차된 출발 시각 알림"
-            enableVibration(true)
-            setBypassDnd(true)
-        }
-        nm.createNotificationChannel(channel)
     }
 }
