@@ -35,16 +35,58 @@
     return d.getFullYear() + "-" + pad2(d.getMonth() + 1) + "-" + pad2(d.getDate());
   }
 
+  // ---- 명절 등 특별 시간표 (special-data.js) ----
+  // 적용일에는 "sp:2026-09-25" 같은 구분값을 쓰고, 노선마다 route.schedules 에 같은 키로 넣어 둔다.
+  var SPECIAL = (typeof SPECIAL_SCHEDULE !== "undefined") ? SPECIAL_SCHEDULE : null;
+  var SP_PREFIX = "sp:";
+
+  function isSpecialCat(cat) { return typeof cat === "string" && cat.indexOf(SP_PREFIX) === 0; }
+
+  function specialDay(cat) {
+    if (!SPECIAL || !isSpecialCat(cat)) return null;
+    var date = cat.slice(SP_PREFIX.length);
+    for (var i = 0; i < SPECIAL.days.length; i++) {
+      if (SPECIAL.days[i].date === date) return SPECIAL.days[i];
+    }
+    return null;
+  }
+
+  // 오늘이 특별 시간표 적용일이면 그 날짜의 구분값, 아니면 null
+  function todaySpecialCat() {
+    var cat = SP_PREFIX + todayStr(new Date());
+    return specialDay(cat) ? cat : null;
+  }
+
+  // 기간 며칠 전(showFrom)부터 마지막 날까지 탭을 보여 미리 확인할 수 있게 한다
+  function specialTabsVisible() {
+    if (!SPECIAL) return false;
+    var t = todayStr(new Date());
+    return t >= SPECIAL.showFrom && t <= SPECIAL.end;
+  }
+
+  function applySpecialSchedule() {
+    if (!SPECIAL) return;
+    SCHEDULE_DATA.forEach(function (route) {
+      var byDate = SPECIAL.routes[route.label];
+      if (!byDate) return;
+      Object.keys(byDate).forEach(function (d) { route.schedules[SP_PREFIX + d] = byDate[d]; });
+    });
+  }
+
   function dayCategoryLabel(cat) {
     if (cat === "weekday") return "평일";
     if (cat === "saturday") return "토요일";
     if (cat === "holiday") return "휴일(일요일/공휴일)";
+    var sd = specialDay(cat);
+    if (sd) return SPECIAL.name + " 특별 " + sd.label;
     return cat;
   }
 
   // 오늘 날짜만 보고 자동으로 정하는 요일 구분
-  // (공휴일은 달력으로 알 수 없으므로 기사님이 직접 '휴일'을 누르면 됨)
+  // (특별 시간표 적용일이면 그것을 우선. 그 밖의 공휴일은 기사님이 직접 '휴일'을 누르면 됨)
   function autoDayCategory() {
+    var sp = todaySpecialCat();
+    if (sp) return sp;
     var d = new Date().getDay();
     if (d === 0) return "holiday";
     if (d === 6) return "saturday";
@@ -107,8 +149,28 @@
     renderDayTabs();
   }
 
+  function renderSpecialTabs() {
+    var box = $("specialTabs");
+    if (!box) return;
+    var show = !!SPECIAL && (specialTabsVisible() || isSpecialCat(state.dayCategory));
+    box.classList.toggle("hidden", !show);
+    if (!show || box.dataset.built) return;
+    box.innerHTML = '<div class="sp-title">🌕 ' + SPECIAL.name + ' 특별 시간표</div><div class="sp-tabs"></div>';
+    var row = box.querySelector(".sp-tabs");
+    SPECIAL.days.forEach(function (d) {
+      var b = document.createElement("button");
+      b.className = "day-tab sp-tab";
+      b.dataset.day = SP_PREFIX + d.date;
+      b.textContent = d.tab;
+      b.addEventListener("click", function () { setDayCategory(b.dataset.day); });
+      row.appendChild(b);
+    });
+    box.dataset.built = "1";
+  }
+
   function renderDayTabs() {
     var auto = autoDayCategory();
+    renderSpecialTabs();
     var tabs = document.querySelectorAll(".day-tab");
     Array.prototype.forEach.call(tabs, function (btn) {
       var day = btn.dataset.day;
@@ -121,7 +183,8 @@
       note.classList.remove("warn");
     } else {
       note.textContent = "※ 오늘은 " + dayCategoryLabel(auto) + "입니다. 지금은 " +
-        dayCategoryLabel(state.dayCategory) + " 시간표를 보고 있습니다.";
+        dayCategoryLabel(state.dayCategory) + " 시간표를 보고 있습니다." +
+        (isSpecialCat(state.dayCategory) ? " 미리 보기용이니, 알림은 그날 다시 켜 주세요." : "");
       note.classList.add("warn");
     }
   }
@@ -1061,9 +1124,11 @@
   // ---- wiring ----
 
   function init() {
+    applySpecialSchedule();
     state.dayCategory = computeDayCategory();
     renderTopbar();
-    Array.prototype.forEach.call(document.querySelectorAll(".day-tab"), function (btn) {
+    // 특별 시간표 탭은 renderSpecialTabs 에서 따로 연결하므로 기본 요일 탭만
+    Array.prototype.forEach.call(document.querySelectorAll(".daytype-tabs .day-tab"), function (btn) {
       btn.addEventListener("click", function () { setDayCategory(btn.dataset.day); });
     });
 

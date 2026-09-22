@@ -730,3 +730,23 @@ h3 {
   .volume-hint { background: #3A2A12; }
   .daytype-note.warn { color: #FFB74D; }
 }
+
+/* ---- 명절 특별 시간표 탭 ---- */
+.special-tabs {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--border);
+}
+.special-tabs.hidden { display: none; }
+.sp-title { font-size: 0.85rem; font-weight: 700; color: #B26A00; }
+.sp-tabs { display: flex; gap: 6px; }
+.day-tab.sp-tab { border-color: #F0C88A; color: #8A5200; }
+.day-tab.sp-tab.active { background: #E65100; border-color: #E65100; color: #fff; }
+@media (prefers-color-scheme: dark) {
+  .sp-title { color: #FFB74D; }
+  .day-tab.sp-tab { border-color: #5C441A; color: #FFB74D; }
+  .day-tab.sp-tab.active { background: #E65100; border-color: #E65100; color: #fff; }
+}
