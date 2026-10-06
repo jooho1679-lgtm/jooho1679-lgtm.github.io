@@ -1,9 +1,10 @@
-var CACHE_NAME = "geongik-schedule-v22";
+var CACHE_NAME = "geongik-schedule-v23";
 var ASSETS = [
   "./",
   "./index.html",
   "./style.css",
   "./app.js",
+  "./holidays.js",
   "./schedule-data.js",
   "./special-data.js",
   "./manifest.json",

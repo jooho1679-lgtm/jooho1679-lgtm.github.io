@@ -1,9 +1,10 @@
-var CACHE_NAME = "geongikbus-schedule-v5";
+var CACHE_NAME = "geongikbus-schedule-v6";
 var ASSETS = [
   "./",
   "./index.html",
   "./style.css",
   "./app.js",
+  "./holidays.js",
   "./schedule-data.js",
   "./manifest.json",
   "./icon-192.png",

@@ -36,9 +36,21 @@
     return cat;
   }
 
+  // 공휴일 이름 (holidays.js). 평일에 걸린 공휴일도 휴일 시간표를 쓰기 위한 것.
+  function holidayName(dateStr) {
+    if (typeof PUBLIC_HOLIDAYS === "undefined" || !PUBLIC_HOLIDAYS) return null;
+    return PUBLIC_HOLIDAYS[dateStr] || null;
+  }
+
+  function todayHolidayName() {
+    return holidayName(todayStr(new Date()));
+  }
+
   // 오늘 날짜만 보고 자동으로 정하는 요일 구분
-  // (공휴일은 달력으로 알 수 없으므로 기사님이 직접 '휴일'을 누르면 됨)
+  // 순서: 공휴일 목록 > 일요일 > 토요일 > 평일
+  // (목록에 없는 임시공휴일은 기사님이 직접 '휴일'을 누르면 됨)
   function autoDayCategory() {
+    if (todayHolidayName()) return "holiday";
     var d = new Date().getDay();
     if (d === 0) return "holiday";
     if (d === 6) return "saturday";
@@ -110,11 +122,14 @@
       btn.classList.toggle("is-today", day === auto);
     });
     var note = $("dayNote");
+    var hol = todayHolidayName();
     if (state.dayCategory === auto) {
-      note.textContent = "오늘 날짜에 맞는 " + dayCategoryLabel(auto) + " 시간표입니다.";
+      note.textContent = (hol && auto === "holiday")
+        ? "오늘은 " + hol + "(공휴일)이라 휴일 시간표입니다."
+        : "오늘 날짜에 맞는 " + dayCategoryLabel(auto) + " 시간표입니다.";
       note.classList.remove("warn");
     } else {
-      note.textContent = "※ 오늘은 " + dayCategoryLabel(auto) + "입니다. 지금은 " +
+      note.textContent = "※ 오늘은 " + (hol && auto === "holiday" ? hol + "(공휴일)" : dayCategoryLabel(auto)) + "입니다. 지금은 " +
         dayCategoryLabel(state.dayCategory) + " 시간표를 보고 있습니다.";
       note.classList.add("warn");
     }
